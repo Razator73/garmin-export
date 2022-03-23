@@ -41,8 +41,19 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
     browser.save_screenshot('password_submit.png')
 
     if metric_ids is None:
-        with open('wellness_ids.json') as f:
-            metric_ids = json.load(f)
+        metric_ids = {
+            "22": "WELLNESS_ACTIVE_CALORIES", "23": "WELLNESS_BMR_CALORIES", "25": "FOOD_CALORIES_REMAINING",
+            "28": "WELLNESS_TOTAL_CALORIES", "29": "WELLNESS_TOTAL_STEPS", "38": "WELLNESS_TOTAL_STEP_GOAL",
+            "39": "WELLNESS_TOTAL_DISTANCE", "40": "WELLNESS_AVERAGE_STEPS", "41": "COMMON_TOTAL_CALORIES",
+            "42": "COMMON_ACTIVE_CALORIES", "43": "COMMON_TOTAL_DISTANCE", "51": "WELLNESS_MODERATE_INTENSITY_MINUTES",
+            "52": "WELLNESS_VIGOROUS_INTENSITY_MINUTES", "53": "WELLNESS_FLOORS_ASCENDED",
+            "54": "WELLNESS_FLOORS_DESCENDED", "55": "WELLNESS_USER_INTENSITY_MINUTES_GOAL",
+            "56": "WELLNESS_USER_FLOORS_ASCENDED_GOAL", "57": "WELLNESS_MIN_HEART_RATE",
+            "58": "WELLNESS_MAX_HEART_RATE", "60": "WELLNESS_RESTING_HEART_RATE", "63": "WELLNESS_AVERAGE_STRESS",
+            "64": "WELLNESS_MAX_STRESS", "82": "WELLNESS_MIN_AVG_HEART_RATE", "83": "WELLNESS_MAX_AVG_HEART_RATE",
+            "84": "WELLNESS_BODYBATTERY_CHARGED", "85": "WELLNESS_BODYBATTERY_DRAINED",
+            "86": "WELLNESS_ABNORMALHR_ALERTS_COUNT"
+        }
 
         metric_ids_str = '&metricId='.join([str(x) for x in metric_ids.keys()])
     else:
