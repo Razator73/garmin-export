@@ -36,8 +36,8 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
     browser.find_element(By.ID, 'username').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
     password = browser.find_element(By.ID, 'password')
     password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
-    password.submit()
     browser.save_screenshot('password_submit.png')
+    password.submit()
 
     if metric_ids is None:
         metric_ids = {
@@ -62,7 +62,12 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
                            f'fromDate={start_date.isoformat()}&untilDate={end_date.isoformat()}'
                            f'&metricId={metric_ids_str}&grpParentActType=false')
     browser.save_screenshot('stats_after.png')
-    metrics_map = json.loads(browser.find_element(By.XPATH, '//body').text)['allMetrics']['metricsMap']
+    try:
+        metrics_map = json.loads(browser.find_element(By.XPATH, '//body').text)['allMetrics']['metricsMap']
+    except KeyError:
+        browser.quit()
+        display.stop()
+        raise
     day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     rename_cols = {'wellness_total_steps': 'total_steps', 'wellness_total_step_goal': 'step_goal'}
     browser.quit()
