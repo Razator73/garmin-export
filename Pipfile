@@ -4,8 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-requests = "*"
-garminconnect = "*"
 pandas = "*"
 selenium = "*"
 pyvirtualdisplay = "*"
