@@ -3,6 +3,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import time
 
 from dotenv import load_dotenv
 from pyvirtualdisplay import Display
@@ -38,6 +39,7 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
     password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
     browser.save_screenshot('password_submit.png')
     password.submit()
+    time.sleep(5)
 
     if metric_ids is None:
         metric_ids = {

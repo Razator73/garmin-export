@@ -22,6 +22,7 @@ def print_ytd(data, end_date=None):
                  False: len([x for x in data if not x['met_step_goal']])}
     total_steps = int(sum([x['total_steps'] for x in data]))
     end_date = dt.date.fromisoformat(end_date) if end_date else dt.date.today() - dt.timedelta(days=1)
+    end_date = min(end_date, max([x['date'] for x in data]))
 
     current_data = [x for x in data if dt.date(end_date.year, 1, 1) <= x['date'] <= end_date]
     ytd_dict = {True: len([x for x in current_data if x['met_step_goal']]),
