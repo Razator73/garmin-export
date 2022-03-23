@@ -4,7 +4,6 @@ import datetime as dt
 import json
 import os
 
-import pandas as pd
 from dotenv import load_dotenv
 from pyvirtualdisplay import Display
 from selenium import webdriver
@@ -79,13 +78,10 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
                 day_data[metric.lower()] = int(metric_value) if metric_value else 0
             except IndexError:
                 day_data[metric.lower()] = 0
+        for old_col, new_col in rename_cols.items():
+            day_data[new_col] = day_data.pop(old_col)
         garmin_data.append(day_data)
-    garmin_df = pd.DataFrame(garmin_data)
-    garmin_df.rename(columns=rename_cols, inplace=True)
-    garmin_df = garmin_df[garmin_df.total_steps != 0]
-    # garmin_df['met_step_goal'] = (garmin_df.total_steps >= garmin_df.step_goal) & (garmin_df.step_goal != 0)
-    garmin_df['date'] = pd.to_datetime(garmin_df.date)
-    return garmin_df
+    return garmin_data
 
 
 if __name__ == '__main__':
@@ -105,7 +101,7 @@ if __name__ == '__main__':
     garmin_stats = get_garmin_stats(start_date=args.from_date, end_date=args.end_date, metric_ids=args.metric_ids)
 
     session = init_db(os.getenv('GARMIN_DATABASE_PATH'))
-    for day_stat in garmin_stats.to_dict('records'):
+    for day_stat in garmin_stats:
         if (day_row := session.query(GarminStat).filter_by(date=day_stat['date'])).first():
             day_row.update(day_stat)
         else:

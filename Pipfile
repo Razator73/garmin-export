@@ -4,14 +4,14 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pandas = "*"
-selenium = "<4"
+selenium = "*"
 pyvirtualdisplay = "*"
 sqlalchemy = "*"
 python-dotenv = "*"
 
 [dev-packages]
 ipython = "*"
+pandas = "*"
 
 [requires]
 python_version = "3.9"
