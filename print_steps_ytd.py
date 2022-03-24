@@ -18,13 +18,15 @@ def get_garmin_stats(db):
 
 
 def print_ytd(data, end_date=None):
+    end_date = dt.date.fromisoformat(end_date) if end_date else dt.date.today() - dt.timedelta(days=1)
+    end_date = min(end_date, max([x['date'] for x in data]))
+    data = [x for x in data if x['date'] <= end_date]
+
     goal_dict = {True: len([x for x in data if x['met_step_goal']]),
                  False: len([x for x in data if not x['met_step_goal']])}
     total_steps = int(sum([x['total_steps'] for x in data]))
-    end_date = dt.date.fromisoformat(end_date) if end_date else dt.date.today() - dt.timedelta(days=1)
-    end_date = min(end_date, max([x['date'] for x in data]))
 
-    current_data = [x for x in data if dt.date(end_date.year, 1, 1) <= x['date'] <= end_date]
+    current_data = [x for x in data if dt.date(end_date.year, 1, 1) <= x['date']]
     ytd_dict = {True: len([x for x in current_data if x['met_step_goal']]),
                 False: len([x for x in current_data if not x['met_step_goal']])}
     ytd_steps = int(sum([x['total_steps'] for x in current_data]))
@@ -47,8 +49,9 @@ def print_ytd(data, end_date=None):
     goal_pace = (year_goal / 365)*len(current_data)
     pace_diff = ytd_steps - goal_pace
     print(f'\nPace for year\'s goal is {goal_pace:,.0f} ({"" if pace_diff < 0 else "+"}{pace_diff:,.0f})')
-    print(f'Need {year_goal - ytd_steps:,} more steps this year (avg of '
-          f'{int((year_goal - ytd_steps) / (365 - ytd_dict.get(True, 0) - ytd_dict.get(False, 0))):,} per day)')
+    if len(current_data) < 365:
+        print(f'Need {year_goal - ytd_steps:,} more steps this year (avg of '
+              f'{int((year_goal - ytd_steps) / (365 - ytd_dict.get(True, 0) - ytd_dict.get(False, 0))):,} per day)')
 
 
 if __name__ == '__main__':

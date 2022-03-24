@@ -22,9 +22,6 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
         raise TypeError('Start or End date have to be datetime objects or iso date strings (yyyy-dd-mm)')
     start_date, end_date = (end_date, start_date) if end_date < start_date else (start_date, end_date)
 
-    # browser_opts = webdriver.ChromeOptions()
-    # browser_opts.headless = False
-    # browser = webdriver.Chrome(options=browser_opts)
     display = Display(visible=False)
     display.start()
     browser = webdriver.Chrome()
