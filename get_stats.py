@@ -2,8 +2,11 @@
 import argparse
 import datetime as dt
 import json
+import logging
 import os
 import time
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from dotenv import load_dotenv
 from pyvirtualdisplay import Display
@@ -13,7 +16,7 @@ from selenium.webdriver.common.by import By
 from model import GarminStat, init_db
 
 
-def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
+def get_garmin_stats(log, start_date=None, end_date=None, metric_ids=None):
     start_date = dt.date.today() - dt.timedelta(days=1) if not start_date else start_date
     end_date = dt.date.today() - dt.timedelta(days=1) if not end_date else end_date
     start_date = dt.date.fromisoformat(start_date) if isinstance(start_date, str) else start_date
@@ -24,19 +27,10 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
 
     display = Display(visible=False)
     display.start()
-    browser = webdriver.Chrome()
 
     base_url = 'https://connect.garmin.com'
     better_signin_url = 'https://sso.garmin.com/sso/signin?webhost=https%3A%2F%2Fconnect.garmin.com' \
                         '&service=https%3A%2F%2Fconnect.garmin.com&source=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fsignin'
-
-    browser.get(better_signin_url)
-    browser.find_element(By.ID, 'username').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
-    password = browser.find_element(By.ID, 'password')
-    password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
-    browser.save_screenshot('password_submit.png')
-    password.submit()
-    time.sleep(5)
 
     if metric_ids is None:
         metric_ids = {
@@ -56,20 +50,37 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
         metric_ids_str = '&metricId='.join([str(x) for x in metric_ids.keys()])
     else:
         metric_ids_str = '&metricId='.join([str(x) for x in metric_ids])
-    browser.save_screenshot('stats_before.png')
-    browser.get(base_url + '/proxy/userstats-service/wellness/daily/hunterzero73?'
-                           f'fromDate={start_date.isoformat()}&untilDate={end_date.isoformat()}'
-                           f'&metricId={metric_ids_str}&grpParentActType=false')
-    browser.save_screenshot('stats_after.png')
-    try:
-        metrics_map = json.loads(browser.find_element(By.XPATH, '//body').text)['allMetrics']['metricsMap']
-    except KeyError:
-        browser.quit()
-        display.stop()
-        raise
     day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     rename_cols = {'wellness_total_steps': 'total_steps', 'wellness_total_step_goal': 'step_goal'}
-    browser.quit()
+
+    metrics_map = []
+    for i in range(2):
+        browser = webdriver.Chrome()
+        browser.get(better_signin_url)
+        browser.find_element(By.ID, 'username').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
+        password = browser.find_element(By.ID, 'password')
+        password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
+        browser.save_screenshot('password_submit.png')
+        password.submit()
+        time.sleep(5 * (i + 1))
+        browser.save_screenshot('stats_before.png')
+        browser.get(base_url + '/proxy/userstats-service/wellness/daily/hunterzero73?'
+                               f'fromDate={start_date.isoformat()}&untilDate={end_date.isoformat()}'
+                               f'&metricId={metric_ids_str}&grpParentActType=false')
+        browser.save_screenshot('stats_after.png')
+        try:
+            metrics_map = json.loads(browser.find_element(By.XPATH, '//body').text)['allMetrics']['metricsMap']
+        except KeyError:
+            browser.quit()
+            if i < 2:
+                log.info('Failed to load metrics. Trying again...')
+                time.sleep(30)
+                continue
+            else:
+                log.exception('Metrics didn\'t load properly')
+                display.stop()
+                return []
+        browser.quit()
     display.stop()
 
     garmin_data = []
@@ -90,25 +101,43 @@ def get_garmin_stats(start_date=None, end_date=None, metric_ids=None):
 
 if __name__ == '__main__':
     load_dotenv()
-    if not os.getenv('GARMIN_SIGNIN_EMAIL'):
-        raise KeyError('Please make sure GARMIN_SIGNIN_EMAIL is set in the environment variables')
-    if not os.getenv('GARMIN_SIGNIN_PASSWORD'):
-        raise KeyError('Please make sure GARMIN_SIGNIN_PASSWORD is set in the environment variables')
-    if not os.getenv('GARMIN_DATABASE_PATH'):
-        raise KeyError('Please make sure GARMIN_DATABASE_PATH is set in the environment variables')
-    arg_parser = argparse.ArgumentParser(prog='garmin_export', description='Scrape my garmin stats')
-    arg_parser.add_argument('-f', '--from_date', default=None, help='Start date for the stats (default yesterday)')
-    arg_parser.add_argument('-e', '--end_date', default=None, help='End date for the stats (default yesterday)')
-    arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')
-    args = arg_parser.parse_args()
+    log_file = Path.home() / '.logs' / 'garmin_extract.log'
+    log_file.parent.mkdir(exist_ok=True)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    formatter.converter = time.gmtime
+    file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 10, backupCount=2)
+    file_handler.setFormatter(formatter)
+    file_logger = logging.getLogger('garmin_extract')
+    file_logger.setLevel(logging.INFO)
+    file_logger.addHandler(file_handler)
 
-    garmin_stats = get_garmin_stats(start_date=args.from_date, end_date=args.end_date, metric_ids=args.metric_ids)
+    file_logger.info('Starting the extract of Garmin stats')
+    try:
+        if not os.getenv('GARMIN_SIGNIN_EMAIL'):
+            raise KeyError('Please make sure GARMIN_SIGNIN_EMAIL is set in the environment variables')
+        if not os.getenv('GARMIN_SIGNIN_PASSWORD'):
+            raise KeyError('Please make sure GARMIN_SIGNIN_PASSWORD is set in the environment variables')
+        if not os.getenv('GARMIN_DATABASE_PATH'):
+            raise KeyError('Please make sure GARMIN_DATABASE_PATH is set in the environment variables')
+        arg_parser = argparse.ArgumentParser(prog='garmin_export', description='Scrape my garmin stats')
+        arg_parser.add_argument('-f', '--from_date', default=None, help='Start date for the stats (default yesterday)')
+        arg_parser.add_argument('-e', '--end_date', default=None, help='End date for the stats (default yesterday)')
+        arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')
+        args = arg_parser.parse_args()
 
-    session = init_db(os.getenv('GARMIN_DATABASE_PATH'))
-    for day_stat in garmin_stats:
-        if (day_row := session.query(GarminStat).filter_by(date=day_stat['date'])).first():
-            day_row.update(day_stat)
-        else:
-            session.add(GarminStat(**day_stat))
-    session.commit()
-    session.close()
+        garmin_stats = get_garmin_stats(log=file_logger, start_date=args.from_date, end_date=args.end_date,
+                                        metric_ids=args.metric_ids)
+
+        session = init_db(os.getenv('GARMIN_DATABASE_PATH'))
+        for day_stat in garmin_stats:
+            if (day_row := session.query(GarminStat).filter_by(date=day_stat['date'])).first():
+                day_row.update(day_stat)
+            else:
+                session.add(GarminStat(**day_stat))
+        session.commit()
+        session.close()
+    except Exception:
+        file_logger.exception('Garmin extract failed')
+        raise
+    file_logger.info('Finished extract')
