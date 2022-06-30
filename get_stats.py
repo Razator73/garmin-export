@@ -4,6 +4,7 @@ import datetime as dt
 import json
 import logging
 import os
+import sys
 import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -16,6 +17,7 @@ from selenium.webdriver.common.by import By
 from model import GarminStat, init_db
 
 
+# noinspection DuplicatedCode
 def get_garmin_stats(log, start_date=None, end_date=None, metric_ids=None):
     start_date = dt.date.today() - dt.timedelta(days=1) if not start_date else start_date
     end_date = dt.date.today() - dt.timedelta(days=1) if not end_date else end_date
@@ -94,7 +96,11 @@ def get_garmin_stats(log, start_date=None, end_date=None, metric_ids=None):
             except IndexError:
                 day_data[metric.lower()] = 0
         for old_col, new_col in rename_cols.items():
-            day_data[new_col] = day_data.pop(old_col)
+            try:
+                day_data[new_col] = day_data.pop(old_col)
+            except KeyError:
+                log.exception("Couldn't pull the metrics due to missing column")
+                return []
         garmin_data.append(day_data)
     return garmin_data
 
@@ -113,6 +119,7 @@ if __name__ == '__main__':
     file_logger.addHandler(file_handler)
 
     file_logger.info('Starting the extract of Garmin stats')
+    # noinspection PyBroadException
     try:
         if not os.getenv('GARMIN_SIGNIN_EMAIL'):
             raise KeyError('Please make sure GARMIN_SIGNIN_EMAIL is set in the environment variables')
@@ -139,5 +146,5 @@ if __name__ == '__main__':
         session.close()
     except Exception:
         file_logger.exception('Garmin extract failed')
-        raise
+        sys.exit(1)
     file_logger.info('Finished extract')
