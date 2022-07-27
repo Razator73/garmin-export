@@ -62,14 +62,11 @@ def get_garmin_stats(log, start_date=None, end_date=None, metric_ids=None):
         browser.find_element(By.ID, 'username').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
         password = browser.find_element(By.ID, 'password')
         password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
-        browser.save_screenshot('password_submit.png')
         password.submit()
         time.sleep(5 * (i + 1))
-        browser.save_screenshot('stats_before.png')
         browser.get(base_url + '/proxy/userstats-service/wellness/daily/hunterzero73?'
                                f'fromDate={start_date.isoformat()}&untilDate={end_date.isoformat()}'
                                f'&metricId={metric_ids_str}&grpParentActType=false')
-        browser.save_screenshot('stats_after.png')
         try:
             metrics_map = json.loads(browser.find_element(By.XPATH, '//body').text)['allMetrics']['metricsMap']
         except KeyError:
