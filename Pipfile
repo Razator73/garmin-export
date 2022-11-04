@@ -8,6 +8,7 @@ selenium = "<4"
 pyvirtualdisplay = "*"
 sqlalchemy = "*"
 python-dotenv = "*"
+razator-utils = "*"
 
 [dev-packages]
 ipython = "*"
