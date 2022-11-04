@@ -1,8 +1,15 @@
-from sqlalchemy import Column, Integer, String, create_engine, Date, DateTime, TIMESTAMP, Boolean, Float
+from sqlalchemy import Column, Integer, String, create_engine, Date, DateTime, Boolean, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 Base = declarative_base()
+
+
+def convert_speed_to_pace(speed):
+    pace = 1 / (speed * 0.00062137)  # get pace in seconds per mile
+    pace_minutes = pace // 60
+    pace_seconds = pace - pace_minutes * 60
+    return f'{pace_minutes:.0f}:{pace_seconds:02.0f}'
 
 
 class GarminStat(Base):
@@ -82,6 +89,26 @@ class Activity(Base):
     manual_activity = Column(Boolean, nullable=False)
     auto_calc_calories = Column(Boolean, nullable=False)
     elevation_corrected = Column(String, nullable=True)
+
+    @property
+    def duration_minutes(self):
+        return self.duration / 60 if self.duration else None
+
+    @property
+    def distance_miles(self):
+        return self.distance * 0.000621371 if self.distance else None
+
+    @property
+    def steps_per_mile(self):
+        return self.steps / self.distance_miles if self.distance_miles and self.steps else None
+
+    @property
+    def steps_per_minute(self):
+        return self.steps / self.duration_minutes if self.duration_minutes and self.steps else None
+
+    @property
+    def pace(self):
+        return convert_speed_to_pace(self.average_speed) if self.average_speed else None
 
 
 def init_db(db_path):
