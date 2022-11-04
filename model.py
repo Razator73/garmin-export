@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, create_engine, Date
+from sqlalchemy import Column, Integer, String, create_engine, Date, DateTime, TIMESTAMP, Boolean, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -36,6 +36,52 @@ class GarminStat(Base):
     wellness_bodybattery_charged = Column(Integer, nullable=False)
     wellness_bodybattery_drained = Column(Integer, nullable=False)
     wellness_abnormalhr_alerts_count = Column(Integer, nullable=False)
+
+
+class Activity(Base):
+    __tablename__ = 'activities'
+    activity_id = Column(Integer, primary_key=True)
+    activity_name = Column(String, nullable=False)
+    start_time_local = Column(DateTime, nullable=False)
+    start_time_gmt = Column(DateTime, nullable=False)
+    activity_type_type_id = Column(Integer, nullable=False)
+    activity_type_type_key = Column(String, nullable=False)
+    activity_type_parent_type_id = Column(Integer, nullable=False)
+    activity_type_is_hidden = Column(Boolean, nullable=False)
+    activity_type_trimmable = Column(Boolean, nullable=False)
+    activity_type_restricted = Column(Boolean, nullable=False)
+    event_type_type_id = Column(Integer, nullable=False)
+    event_type_type_key = Column(String, nullable=False)
+    event_type_sort_order = Column(Integer, nullable=False)
+    distance = Column(Float, nullable=False)
+    duration = Column(Float, nullable=False)
+    moving_duration = Column(Float, nullable=True)
+    elevation_gain = Column(Float, nullable=True)
+    elevation_loss = Column(Float, nullable=True)
+    average_speed = Column(Float, nullable=False)
+    max_speed = Column(Float, nullable=True)
+    calories = Column(Float, nullable=False)
+    average_hr = Column(Float, nullable=True)
+    max_hr = Column(Float, nullable=True)
+    steps = Column(Float, nullable=True)
+    time_zone_id = Column(Integer, nullable=False)
+    begin_timestamp = Column(Integer, nullable=False)
+    v_o2_max_value = Column(Float, nullable=True)
+    workout_id = Column(Float, nullable=True)
+    device_id = Column(Float, nullable=True)
+    min_elevation = Column(Float, nullable=True)
+    max_elevation = Column(Float, nullable=True)
+    location_name = Column(String, nullable=True)
+    lap_count = Column(Float, nullable=True)
+    calories_consumed = Column(Float, nullable=True)
+    min_activity_lap_duration = Column(Float, nullable=True)
+    has_splits = Column(Boolean, nullable=True)
+    moderate_intensity_minutes = Column(Float, nullable=True)
+    vigorous_intensity_minutes = Column(Float, nullable=True)
+    pr = Column(Boolean, nullable=False)
+    manual_activity = Column(Boolean, nullable=False)
+    auto_calc_calories = Column(Boolean, nullable=False)
+    elevation_corrected = Column(String, nullable=True)
 
 
 def init_db(db_path):
