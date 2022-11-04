@@ -6,7 +6,7 @@ Base = declarative_base()
 
 
 class GarminStat(Base):
-    __tablename__ = 'garmin_stats'
+    __tablename__ = 'daily_stats'
     date = Column(Date, primary_key=True)
     day_of_week = Column(String(9), nullable=False)
     wellness_active_calories = Column(Integer, nullable=False)
