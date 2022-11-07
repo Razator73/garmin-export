@@ -30,6 +30,7 @@ def get_daily_stats(base_url, browser, start_date, end_date, metric_ids,
 
     :return: garmin_data: List of daily stats pulled from garmin (list of dicts)
     """
+    start_date = max(start_date, dt.date(2017, 9, 5))
     if metric_ids is None:
         metric_ids = {
             "22": "WELLNESS_ACTIVE_CALORIES", "23": "WELLNESS_BMR_CALORIES", "25": "FOOD_CALORIES_REMAINING",
@@ -94,6 +95,7 @@ def get_garmin_activities(base_url, browser, start_date, end_date,
 
     :return: activities: List of activities pulled from garmin (list of dicts)
     """
+    start_date = max(start_date, dt.date(2013, 9, 1))
     start = 0
     limit = 200
     url_activities = base_url + '/proxy/activitylist-service/activities/search/activities'
