@@ -11,9 +11,84 @@ import razator_utils
 from dotenv import load_dotenv
 from pyvirtualdisplay import Display
 from selenium import webdriver
+from selenium.common.exceptions import ElementNotInteractableException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
 
 from model import GarminStat, Activity, init_db
+
+
+def wait_for_element(css_selector, driver, timeout=15):
+    """Wait for an element to appear on the page.
+
+    Args:
+        css_selector (str): CSS selector for the element.
+        driver (WebDriver): Selenium WebDriver object.
+        timeout (int): Number of seconds to wait before timing out.
+
+    Returns:
+        WebElement: Selenium WebElement object.
+    """
+    start_time = time.time()
+    while True:
+        # noinspection PyBroadException
+        try:
+            element = driver.find_element_by_css_selector(css_selector)
+            return element
+        except Exception:
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f'Timed out after {timeout} seconds trying to find {css_selector}.')
+            time.sleep(0.5)
+
+
+def interact_with_element(css_selector, driver, timeout=15, action='click', value=''):
+    """Click an element on the page.
+
+    Args:
+        css_selector (str): CSS selector for the element.
+        driver (WebDriver): Selenium WebDriver object.
+        timeout (int): Number of seconds to wait before timing out.
+        action (str): Action to take on the element. Can be 'click' or 'send_keys'.
+        value (str): Value to send to the element if action is 'send_keys'.
+    """
+    element = wait_for_element(css_selector, driver, timeout)
+    start_time = time.time()
+    while True:
+        try:
+            if action == 'click':
+                element.click()
+            elif action == 'send_keys':
+                element.send_keys(value)
+            return element
+        except (ElementNotInteractableException, StaleElementReferenceException):
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f'Timed out after {timeout} seconds trying to interact with {css_selector}.')
+            time.sleep(0.5)
+
+
+def update_activity(act, type_id, browser, base_url, replace_tuple=None):
+    """
+    Update the activity on Garmin Connect with the new activity type
+
+    :param act: Activity to be edited (dict)
+    :param type_id: Type ID to update (int)
+    :param browser:
+    :param base_url:
+    :param replace_tuple: Tuple of (old_string, new_string) (tuple)
+
+    :return: None
+    """
+    browser.get(f"{base_url}/modern/activity/{act['activity_id']}")
+    if replace_tuple:
+        interact_with_element('[class="inline-edit-trigger modal-trigger"]', browser)
+        interact_with_element('[class="inline-edit-editable-text page-title-overflow"]', browser, action='send_keys',
+                              value=act['activity_name'].replace(replace_tuple[0], replace_tuple[1]))
+        interact_with_element('[class="inline-edit-save icon-checkmark"]', browser)
+    interact_with_element('[class="dropdown-toggle active"]', browser)
+    interact_with_element(f'[data-value="{type_id}"]', browser)
+    try:
+        interact_with_element('[class="btn btn-primary js-saveBtn "]', browser, 3)
+    except TimeoutError:
+        pass
 
 
 def get_daily_stats(base_url, browser, start_date, end_date, metric_ids,
@@ -137,6 +212,11 @@ def get_garmin_activities(base_url, browser, start_date, end_date,
             flat_act[col] = dt.datetime.fromisoformat(flat_act[col])
         flat_act = {rename_columns.get(k, k): v for k, v in flat_act.items()}
         del flat_act['activity_type_sort_order']
+        if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']:
+            update_activity(flat_act, 205, browser, base_url)
+            flat_act['activity_type_type_id'] = 205
+            flat_act['activity_type_type_key'] = 'disc_golf'
+            flat_act['activity_type_parent_type_id'] = 4
         flat_activities.append(flat_act)
     return flat_activities
 
