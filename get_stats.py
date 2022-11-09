@@ -18,15 +18,14 @@ from model import GarminStat, Activity, init_db
 
 
 def wait_for_element(css_selector, driver, timeout=15):
-    """Wait for an element to appear on the page.
+    """
+    Wait for an element to appear on the page.
 
-    Args:
-        css_selector (str): CSS selector for the element.
-        driver (WebDriver): Selenium WebDriver object.
-        timeout (int): Number of seconds to wait before timing out.
+    :param css_selector: CSS selector for the element. (str)
+    :param driver: Selenium WebDriver object. (WebDriver)
+    :param timeout: Number of seconds to wait before timing out. (int)
 
-    Returns:
-        WebElement: Selenium WebElement object.
+    :return: element: Selenium WebElement object. (WebElement)
     """
     start_time = time.time()
     while True:
@@ -41,14 +40,16 @@ def wait_for_element(css_selector, driver, timeout=15):
 
 
 def interact_with_element(css_selector, driver, timeout=15, action='click', value=''):
-    """Click an element on the page.
+    """
+    interact with an element on the page.
 
-    Args:
-        css_selector (str): CSS selector for the element.
-        driver (WebDriver): Selenium WebDriver object.
-        timeout (int): Number of seconds to wait before timing out.
-        action (str): Action to take on the element. Can be 'click' or 'send_keys'.
-        value (str): Value to send to the element if action is 'send_keys'.
+    :param css_selector: CSS selector for the element. (str)
+    :param driver: Selenium WebDriver object. (WebDriver)
+    :param timeout: Number of seconds to wait before timing out. (int)
+    :param action: Action to take on the element. Can be 'click' or 'send_keys'. (str)
+    :param value: Value to send to the element if action is 'send_keys'. (str)
+
+    :return: element: Selenium WebElement object. (WebElement)
     """
     element = wait_for_element(css_selector, driver, timeout)
     start_time = time.time()
@@ -71,8 +72,8 @@ def update_activity(act, type_id, browser, base_url, replace_tuple=None):
 
     :param act: Activity to be edited (dict)
     :param type_id: Type ID to update (int)
-    :param browser:
-    :param base_url:
+    :param browser: Selenium browser object (WebDriver)
+    :param base_url: Base URL for Garmin Connect (str)
     :param replace_tuple: Tuple of (old_string, new_string) (tuple)
 
     :return: None
