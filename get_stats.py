@@ -17,7 +17,7 @@ from selenium.webdriver.common.by import By
 from model import GarminStat, Activity, init_db
 
 
-def wait_for_element(css_selector, driver, timeout=15):
+def wait_for_element(css_selector, driver, timeout):
     """
     Wait for an element to appear on the page.
 
@@ -39,7 +39,7 @@ def wait_for_element(css_selector, driver, timeout=15):
             time.sleep(0.5)
 
 
-def interact_with_element(css_selector, driver, timeout=15, action='click', value=''):
+def interact_with_element(css_selector, driver, timeout=30, action='click', value=''):
     """
     interact with an element on the page.
 
