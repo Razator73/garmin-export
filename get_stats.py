@@ -11,7 +11,8 @@ import razator_utils
 from dotenv import load_dotenv
 from pyvirtualdisplay import Display
 from selenium import webdriver
-from selenium.common.exceptions import ElementNotInteractableException, StaleElementReferenceException
+from selenium.common.exceptions import (ElementNotInteractableException, StaleElementReferenceException,
+                                        ElementClickInterceptedException)
 from selenium.webdriver.common.by import By
 
 from model import GarminStat, Activity, init_db
@@ -60,7 +61,7 @@ def interact_with_element(css_selector, driver, timeout=30, action='click', valu
             elif action == 'send_keys':
                 element.send_keys(value)
             return element
-        except (ElementNotInteractableException, StaleElementReferenceException):
+        except (ElementNotInteractableException, StaleElementReferenceException, ElementClickInterceptedException):
             if time.time() - start_time > timeout:
                 raise TimeoutError(f'Timed out after {timeout} seconds trying to interact with {css_selector}.')
             time.sleep(0.5)
