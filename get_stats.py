@@ -80,6 +80,7 @@ def update_activity(act, type_id, browser, base_url, replace_tuple=None):
     :return: None
     """
     browser.get(f"{base_url}/modern/activity/{act['activity_id']}")
+    time.sleep(10)
     if replace_tuple:
         interact_with_element('[class="inline-edit-trigger modal-trigger"]', browser)
         interact_with_element('[class="inline-edit-editable-text page-title-overflow"]', browser, action='send_keys',
