@@ -9,10 +9,11 @@ pyvirtualdisplay = "*"
 sqlalchemy = "*"
 python-dotenv = "*"
 razator-utils = "*"
+garminconnect = "*"
 
 [dev-packages]
 ipython = "*"
 pandas = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3.10"

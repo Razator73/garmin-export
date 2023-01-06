@@ -9,6 +9,7 @@ from pathlib import Path
 
 import razator_utils
 from dotenv import load_dotenv
+from garminconnect import Garmin
 from pyvirtualdisplay import Display
 from selenium import webdriver
 from selenium.common.exceptions import (ElementNotInteractableException, StaleElementReferenceException,
@@ -94,13 +95,41 @@ def update_activity(act, type_id, browser, base_url, replace_tuple=None):
         pass
 
 
-def get_daily_stats(base_url, browser, start_date, end_date, metric_ids,
+def update_dg_activities(disc_golf_acts, show_display):
+    """
+    Updates the disc golf activities aren't listed as such
+
+    :param disc_golf_acts: list of disc golf activities to update (list)
+    :param show_display: whether the virtual display should be shown (boolean)
+    :return: None
+    """
+    display = Display(visible=show_display)
+    display.start()
+
+    base_url = 'https://connect.garmin.com'
+    better_signin_url = 'https://sso.garmin.com/sso/signin?webhost=https%3A%2F%2Fconnect.garmin.com' \
+                        '&service=https%3A%2F%2Fconnect.garmin.com&source=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fsignin'
+
+    browser = webdriver.Chrome()
+    browser.get(better_signin_url)
+    browser.find_element(By.ID, 'username').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
+    password = browser.find_element(By.ID, 'password')
+    password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
+    password.submit()
+
+    for act in disc_golf_acts:
+        update_activity(act, 205, browser, base_url)
+
+    browser.quit()
+    display.stop()
+
+
+def get_daily_stats(api, start_date, end_date, metric_ids,
                     logger=razator_utils.log.get_stout_logger('garmin_daily_stats')):
     """
     Get the daily stats from garmin
 
-    :param base_url: Base URL for Garmin Connect (str)
-    :param browser: Browser object (webdriver)
+    :param api: garmin API Class (Garmin)
     :param start_date: Start date for activities (datetime.date)
     :param end_date: End date for activities (datetime.date)
     :param metric_ids: Metric IDs to pull (dict {"id": "name"})
@@ -124,18 +153,14 @@ def get_daily_stats(base_url, browser, start_date, end_date, metric_ids,
             "86": "WELLNESS_ABNORMALHR_ALERTS_COUNT"
         }
 
-        metric_ids_str = '&metricId='.join([str(x) for x in metric_ids.keys()])
-    else:
-        metric_ids_str = '&metricId='.join([str(x) for x in metric_ids])
+    url = f'{api.garmin_connect_rhr_url}/{api.display_name}'
     day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     rename_cols = {'wellness_total_steps': 'total_steps', 'wellness_total_step_goal': 'step_goal'}
-    time.sleep(15)
-    browser.get(base_url + '/proxy/userstats-service/wellness/daily/hunterzero73?'
-                           f'fromDate={start_date.isoformat()}&untilDate={end_date.isoformat()}'
-                           f'&metricId={metric_ids_str}&grpParentActType=false')
+    params = {"fromDate": str(start_date), "untilDate": str(end_date), 'metricId': metric_ids.keys()}
+
     try:
-        metrics_map = json.loads(browser.find_element(By.XPATH, '//body').text)['allMetrics']['metricsMap']
-    except KeyError:
+        metrics_map = api.modern_rest_client.get(url, params=params).json()['allMetrics']['metricsMap']
+    except (KeyError, json.decoder.JSONDecodeError):
         logger.exception('Metrics didn\'t load properly')
         return []
 
@@ -160,29 +185,26 @@ def get_daily_stats(base_url, browser, start_date, end_date, metric_ids,
     return garmin_data
 
 
-def get_garmin_activities(base_url, browser, start_date, end_date,
+def get_garmin_activities(api, start_date, end_date, show_display,
                           logger=razator_utils.log.get_stout_logger('garmin_activities')):
     """
     Get the activities from garmin
 
-    :param base_url: Base URL for Garmin Connect (str)
-    :param browser: Selenium browser object (webdriver)
+    :param api: garmin API Class (Garmin)
     :param logger: Logger object (logging.Logger)
     :param start_date: Start date for activities (datetime.date)
     :param end_date: End date for activities (datetime.date)
+    :param show_display: whether the virtual display should be shown (boolean)
 
     :return: activities: List of activities pulled from garmin (list of dicts)
     """
     start_date = max(start_date, dt.date(2013, 9, 1))
     start = 0
     limit = 200
-    url_activities = base_url + '/proxy/activitylist-service/activities/search/activities'
     acts = []
     while True:
-        activities_url = f'{url_activities}?start={start}&limit={limit}'
-        logger.debug(activities_url)
-        browser.get(activities_url)
-        acts_batch = json.loads(browser.find_element(By.XPATH, '//body').text)
+        params = {"start": str(start), "limit": str(limit)}
+        acts_batch = api.modern_rest_client.get(api.garmin_connect_activities, params=params).json()
         good_rows = [row for row in acts_batch if
                      start_date <= dt.datetime.fromisoformat(row['startTimeLocal']).date() <= end_date]
         if good_rows:
@@ -215,12 +237,15 @@ def get_garmin_activities(base_url, browser, start_date, end_date,
             flat_act[col] = dt.datetime.fromisoformat(flat_act[col])
         flat_act = {rename_columns.get(k, k): v for k, v in flat_act.items()}
         del flat_act['activity_type_sort_order']
-        if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']:
-            update_activity(flat_act, 205, browser, base_url)
-            flat_act['activity_type_type_id'] = 205
-            flat_act['activity_type_type_key'] = 'disc_golf'
-            flat_act['activity_type_parent_type_id'] = 4
         flat_activities.append(flat_act)
+    dg_acts_to_update = [flat_act for flat_act in flat_activities
+                         if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']]
+    if dg_acts_to_update:
+        update_dg_activities(dg_acts_to_update, show_display)
+        for dg_act in dg_acts_to_update:
+            dg_act['activity_type_type_id'] = 205
+            dg_act['activity_type_type_key'] = 'disc_golf'
+            dg_act['activity_type_parent_type_id'] = 4
     return flat_activities
 
 
@@ -238,25 +263,13 @@ def get_garmin_stats(start_date, end_date, metric_ids=None, show_display=False,
     :return: daily_data, activity_data: Daily and activity data from garmin (each a list of dicts)
     """
     start_date, end_date = (end_date, start_date) if end_date < start_date else (start_date, end_date)
-    display = Display(visible=show_display)
-    display.start()
+    api = Garmin(os.getenv('GARMIN_SIGNIN_EMAIL'), os.getenv('GARMIN_SIGNIN_PASSWORD'))
+    api.login()
 
-    base_url = 'https://connect.garmin.com'
-    better_signin_url = 'https://sso.garmin.com/sso/signin?webhost=https%3A%2F%2Fconnect.garmin.com' \
-                        '&service=https%3A%2F%2Fconnect.garmin.com&source=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fsignin'
+    daily_data = get_daily_stats(api, start_date, end_date, metric_ids, logger)
+    activity_data = get_garmin_activities(api, start_date, end_date, show_display, logger)
 
-    browser = webdriver.Chrome()
-    browser.get(better_signin_url)
-    browser.find_element(By.ID, 'username').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
-    password = browser.find_element(By.ID, 'password')
-    password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
-    password.submit()
-
-    daily_data = get_daily_stats(base_url, browser, start_date, end_date, metric_ids, logger)
-    activity_data = get_garmin_activities(base_url, browser, start_date, end_date, logger)
-
-    browser.quit()
-    display.stop()
+    api.logout()
 
     return daily_data, activity_data
 
