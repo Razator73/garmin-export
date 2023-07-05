@@ -236,7 +236,8 @@ def get_garmin_activities(api, start_date, end_date, show_display,
         for col in time_columns:
             flat_act[col] = dt.datetime.fromisoformat(flat_act[col])
         flat_act = {rename_columns.get(k, k): v for k, v in flat_act.items()}
-        del flat_act['activity_type_sort_order']
+        if 'activity_type_sort_order' in flat_act.keys():
+            del flat_act['activity_type_sort_order']
         flat_activities.append(flat_act)
     dg_acts_to_update = [flat_act for flat_act in flat_activities
                          if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']]
