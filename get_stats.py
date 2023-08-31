@@ -68,11 +68,12 @@ def interact_with_element(css_selector, driver, timeout=30, action='click', valu
             time.sleep(0.5)
 
 
-def update_activity(act, type_id, browser, base_url, replace_tuple=None):
+def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=None):
     """
     Update the activity on Garmin Connect with the new activity type
 
-    :param act: Activity to be edited (dict)
+    :param act_id: ID of Activity to be edited (int | str)
+    :param act_name: Name of Activity to be edited (str)
     :param type_id: Type ID to update (int)
     :param browser: Selenium browser object (WebDriver)
     :param base_url: Base URL for Garmin Connect (str)
@@ -80,12 +81,12 @@ def update_activity(act, type_id, browser, base_url, replace_tuple=None):
 
     :return: None
     """
-    browser.get(f"{base_url}/modern/activity/{act['activity_id']}")
+    browser.get(f"{base_url}/modern/activity/{act_id}")
     time.sleep(10)
     if replace_tuple:
         interact_with_element('[class="inline-edit-trigger modal-trigger"]', browser)
         interact_with_element('[class="inline-edit-editable-text page-title-overflow"]', browser, action='send_keys',
-                              value=act['activity_name'].replace(replace_tuple[0], replace_tuple[1]))
+                              value=act_name.replace(replace_tuple[0], replace_tuple[1]))
         interact_with_element('[class="inline-edit-save icon-checkmark"]', browser)
     interact_with_element('[class="dropdown-toggle active"]', browser)
     interact_with_element(f'[data-value="{type_id}"]', browser)
@@ -99,7 +100,8 @@ def update_activities(acts_to_update, update_to_type_id, show_display):
     """
     Updates the disc golf activities aren't listed as such
 
-    :param disc_golf_acts: list of disc golf activities to update (list)
+    :param acts_to_update: list of activities to update (list)
+    :param update_to_type_id: the id of the type the activity should be (int)
     :param show_display: whether the virtual display should be shown (boolean)
     :return: None
     """
@@ -117,9 +119,19 @@ def update_activities(acts_to_update, update_to_type_id, show_display):
     password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
     password.submit()
 
-    for act in acts_to_update:
-        update_activity(act, update_to_type_id, browser, base_url)
-
+    try:
+        for act in acts_to_update:
+            try:
+                act_id = act['activity_id']
+                act_name = act['activity_name']
+            except TypeError:
+                act_id = act.activity_id
+                act_name = act.activity_name
+            update_activity(act_id, act_name, update_to_type_id, browser, base_url)
+    except Exception:
+        browser.quit()
+        display.stop()
+        raise
     browser.quit()
     display.stop()
 
