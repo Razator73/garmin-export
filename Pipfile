@@ -4,12 +4,14 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-selenium = "<4"
+selenium = "*"
 pyvirtualdisplay = "*"
 sqlalchemy = "*"
 python-dotenv = "*"
 razator-utils = "*"
 garminconnect = "*"
+webdriver-manager = "*"
+undetected-chromedriver = "*"
 
 [dev-packages]
 ipython = "*"

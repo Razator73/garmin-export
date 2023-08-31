@@ -8,10 +8,10 @@ import time
 from pathlib import Path
 
 import razator_utils
+import undetected_chromedriver as uc
 from dotenv import load_dotenv
 from garminconnect import Garmin
 from pyvirtualdisplay import Display
-from selenium import webdriver
 from selenium.common.exceptions import (ElementNotInteractableException, StaleElementReferenceException,
                                         ElementClickInterceptedException)
 from selenium.webdriver.common.by import By
@@ -33,7 +33,7 @@ def wait_for_element(css_selector, driver, timeout):
     while True:
         # noinspection PyBroadException
         try:
-            element = driver.find_element_by_css_selector(css_selector)
+            element = driver.find_element(By.CSS_SELECTOR, css_selector)
             return element
         except Exception:
             if time.time() - start_time > timeout:
@@ -95,7 +95,7 @@ def update_activity(act, type_id, browser, base_url, replace_tuple=None):
         pass
 
 
-def update_dg_activities(disc_golf_acts, show_display):
+def update_activities(acts_to_update, update_to_type_id, show_display):
     """
     Updates the disc golf activities aren't listed as such
 
@@ -110,15 +110,15 @@ def update_dg_activities(disc_golf_acts, show_display):
     better_signin_url = 'https://sso.garmin.com/sso/signin?webhost=https%3A%2F%2Fconnect.garmin.com' \
                         '&service=https%3A%2F%2Fconnect.garmin.com&source=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fsignin'
 
-    browser = webdriver.Chrome()
+    browser = uc.Chrome(subprocess=True)
     browser.get(better_signin_url)
     browser.find_element(By.ID, 'username').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
     password = browser.find_element(By.ID, 'password')
     password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
     password.submit()
 
-    for act in disc_golf_acts:
-        update_activity(act, 205, browser, base_url)
+    for act in acts_to_update:
+        update_activity(act, update_to_type_id, browser, base_url)
 
     browser.quit()
     display.stop()
@@ -241,12 +241,20 @@ def get_garmin_activities(api, start_date, end_date, show_display,
         flat_activities.append(flat_act)
     dg_acts_to_update = [flat_act for flat_act in flat_activities
                          if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']]
+    ultimate_acts = [flat_act for flat_act in flat_activities
+                     if flat_act['activity_type_type_id'] == 11 and 'Frisbee' in flat_act['activity_name']]
     if dg_acts_to_update:
-        update_dg_activities(dg_acts_to_update, show_display)
+        update_activities(dg_acts_to_update, 205, show_display)
         for dg_act in dg_acts_to_update:
             dg_act['activity_type_type_id'] = 205
             dg_act['activity_type_type_key'] = 'disc_golf'
             dg_act['activity_type_parent_type_id'] = 4
+    if ultimate_acts:
+        update_activities(ultimate_acts, 213, show_display)
+        for ulti_act in ultimate_acts:
+            ulti_act['activity_type_type_id'] = 213
+            ulti_act['activity_type_type_key'] = 'ultimate_disc'
+            ulti_act['activity_type_parent_type_id'] = 206
     return flat_activities
 
 
