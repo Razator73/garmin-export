@@ -68,7 +68,8 @@ def interact_with_element(css_selector, driver, timeout=30, action='click', valu
             time.sleep(0.5)
 
 
-def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=None):
+def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=None,
+                    logger=razator_utils.log.get_stout_logger('garmin_activities')):
     """
     Update the activity on Garmin Connect with the new activity type
 
@@ -78,10 +79,13 @@ def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=
     :param browser: Selenium browser object (WebDriver)
     :param base_url: Base URL for Garmin Connect (str)
     :param replace_tuple: Tuple of (old_string, new_string) (tuple)
+    :param logger: Logger object (logging.Logger)
 
     :return: None
     """
-    browser.get(f"{base_url}/modern/activity/{act_id}")
+    act_url = f"{base_url}/modern/activity/{act_id}"
+    browser.get(act_url)
+    logger.info(f"\tUpdating activity `{act_name}` at {act_url}")
     time.sleep(10)
     if replace_tuple:
         interact_with_element('[class="inline-edit-trigger modal-trigger"]', browser)
@@ -96,15 +100,19 @@ def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=
         pass
 
 
-def update_activities(acts_to_update, update_to_type_id, show_display):
+def update_activities(acts_to_update, update_to_type_id, show_display,
+                      logger=razator_utils.log.get_stout_logger('garmin_activities')):
     """
     Updates the disc golf activities aren't listed as such
 
     :param acts_to_update: list of activities to update (list)
     :param update_to_type_id: the id of the type the activity should be (int)
     :param show_display: whether the virtual display should be shown (boolean)
+    :param logger: Logger object (logging.Logger)
+
     :return: None
     """
+    logger.info(f'Updating {len(acts_to_update)} activities...')
     display = Display(visible=show_display)
     display.start()
 
@@ -127,7 +135,7 @@ def update_activities(acts_to_update, update_to_type_id, show_display):
             except TypeError:
                 act_id = act.activity_id
                 act_name = act.activity_name
-            update_activity(act_id, act_name, update_to_type_id, browser, base_url)
+            update_activity(act_id, act_name, update_to_type_id, browser, base_url, logger=logger)
     except Exception:
         browser.quit()
         display.stop()
@@ -256,13 +264,13 @@ def get_garmin_activities(api, start_date, end_date, show_display,
     ultimate_acts = [flat_act for flat_act in flat_activities
                      if flat_act['activity_type_type_id'] == 11 and 'Frisbee' in flat_act['activity_name']]
     if dg_acts_to_update:
-        update_activities(dg_acts_to_update, 205, show_display)
+        update_activities(dg_acts_to_update, 205, show_display, logger=logger)
         for dg_act in dg_acts_to_update:
             dg_act['activity_type_type_id'] = 205
             dg_act['activity_type_type_key'] = 'disc_golf'
             dg_act['activity_type_parent_type_id'] = 4
     if ultimate_acts:
-        update_activities(ultimate_acts, 213, show_display)
+        update_activities(ultimate_acts, 213, show_display, logger=logger)
         for ulti_act in ultimate_acts:
             ulti_act['activity_type_type_id'] = 213
             ulti_act['activity_type_type_key'] = 'ultimate_disc'
