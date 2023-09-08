@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     db = init_db(os.getenv('GARMIN_DATABASE_PATH'))
     ultimate_acts = db.query(Activity).filter_by(activity_type_type_id='11').all()
-    update_activities(ultimate_acts, 213, False)
+    update_activities(ultimate_acts, 213, True)
     for ulti_act in ultimate_acts:
         ulti_act.activity_type_type_id = 213
         ulti_act.activity_type_type_key = 'ultimate_disc'

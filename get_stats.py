@@ -101,7 +101,7 @@ def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=
 
 
 def update_activities(acts_to_update, update_to_type_id, show_display,
-                      logger=razator_utils.log.get_stout_logger('garmin_activities')):
+                      logger=razator_utils.log.get_stout_logger('garmin_activities', 'INFO')):
     """
     Updates the disc golf activities aren't listed as such
 
@@ -227,7 +227,8 @@ def get_garmin_activities(api, start_date, end_date, show_display,
         acts_batch = api.modern_rest_client.get(api.garmin_connect_activities, params=params).json()
         good_rows = [row for row in acts_batch if
                      start_date <= dt.datetime.fromisoformat(row['startTimeLocal']).date() <= end_date]
-        if good_rows:
+        min_act_time = min(dt.datetime.fromisoformat(row['startTimeLocal']).date() for row in acts_batch)
+        if good_rows or end_date <= min_act_time:
             acts += good_rows
             start += limit
         else:
@@ -259,22 +260,22 @@ def get_garmin_activities(api, start_date, end_date, show_display,
         if 'activity_type_sort_order' in flat_act.keys():
             del flat_act['activity_type_sort_order']
         flat_activities.append(flat_act)
-    dg_acts_to_update = [flat_act for flat_act in flat_activities
-                         if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']]
-    ultimate_acts = [flat_act for flat_act in flat_activities
-                     if flat_act['activity_type_type_id'] == 11 and 'Frisbee' in flat_act['activity_name']]
-    if dg_acts_to_update:
-        update_activities(dg_acts_to_update, 205, show_display, logger=logger)
-        for dg_act in dg_acts_to_update:
-            dg_act['activity_type_type_id'] = 205
-            dg_act['activity_type_type_key'] = 'disc_golf'
-            dg_act['activity_type_parent_type_id'] = 4
-    if ultimate_acts:
-        update_activities(ultimate_acts, 213, show_display, logger=logger)
-        for ulti_act in ultimate_acts:
-            ulti_act['activity_type_type_id'] = 213
-            ulti_act['activity_type_type_key'] = 'ultimate_disc'
-            ulti_act['activity_type_parent_type_id'] = 206
+    # dg_acts_to_update = [flat_act for flat_act in flat_activities
+    #                      if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']]
+    # ultimate_acts = [flat_act for flat_act in flat_activities
+    #                  if flat_act['activity_type_type_id'] == 11 and 'Frisbee' in flat_act['activity_name']]
+    # if dg_acts_to_update:
+    #     update_activities(dg_acts_to_update, 205, show_display, logger=logger)
+    #     for dg_act in dg_acts_to_update:
+    #         dg_act['activity_type_type_id'] = 205
+    #         dg_act['activity_type_type_key'] = 'disc_golf'
+    #         dg_act['activity_type_parent_type_id'] = 4
+    # if ultimate_acts:
+    #     update_activities(ultimate_acts, 213, show_display, logger=logger)
+    #     for ulti_act in ultimate_acts:
+    #         ulti_act['activity_type_type_id'] = 213
+    #         ulti_act['activity_type_type_key'] = 'ultimate_disc'
+    #         ulti_act['activity_type_parent_type_id'] = 206
     return flat_activities
 
 
