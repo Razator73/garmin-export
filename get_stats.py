@@ -158,48 +158,48 @@ def get_daily_stats(api, start_date, end_date, metric_ids,
     :return: garmin_data: List of daily stats pulled from garmin (list of dicts)
     """
     start_date = max(start_date, dt.date(2017, 9, 5))
-    if metric_ids is None:
-        metric_ids = {
-            "22": "WELLNESS_ACTIVE_CALORIES", "23": "WELLNESS_BMR_CALORIES", "25": "FOOD_CALORIES_REMAINING",
-            "28": "WELLNESS_TOTAL_CALORIES", "29": "WELLNESS_TOTAL_STEPS", "38": "WELLNESS_TOTAL_STEP_GOAL",
-            "39": "WELLNESS_TOTAL_DISTANCE", "40": "WELLNESS_AVERAGE_STEPS", "41": "COMMON_TOTAL_CALORIES",
-            "42": "COMMON_ACTIVE_CALORIES", "43": "COMMON_TOTAL_DISTANCE", "51": "WELLNESS_MODERATE_INTENSITY_MINUTES",
-            "52": "WELLNESS_VIGOROUS_INTENSITY_MINUTES", "53": "WELLNESS_FLOORS_ASCENDED",
-            "54": "WELLNESS_FLOORS_DESCENDED", "55": "WELLNESS_USER_INTENSITY_MINUTES_GOAL",
-            "56": "WELLNESS_USER_FLOORS_ASCENDED_GOAL", "57": "WELLNESS_MIN_HEART_RATE",
-            "58": "WELLNESS_MAX_HEART_RATE", "60": "WELLNESS_RESTING_HEART_RATE", "63": "WELLNESS_AVERAGE_STRESS",
-            "64": "WELLNESS_MAX_STRESS", "82": "WELLNESS_MIN_AVG_HEART_RATE", "83": "WELLNESS_MAX_AVG_HEART_RATE",
-            "84": "WELLNESS_BODYBATTERY_CHARGED", "85": "WELLNESS_BODYBATTERY_DRAINED",
-            "86": "WELLNESS_ABNORMALHR_ALERTS_COUNT"
-        }
 
-    url = f'{api.garmin_connect_rhr_url}/{api.display_name}'
     day_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    rename_cols = {'wellness_total_steps': 'total_steps', 'wellness_total_step_goal': 'step_goal'}
-    params = {"fromDate": str(start_date), "untilDate": str(end_date), 'metricId': metric_ids.keys()}
+    column_mapping = {
+        'wellness_active_calories': 'wellnessActiveKilocalories',
+        'wellness_bmr_calories': 'bmrKilocalories',
+        'food_calories_remaining': 'remainingKilocalories',
+        'wellness_total_calories': 'wellnessKilocalories',
+        'total_steps': 'totalSteps',
+        'step_goal': 'dailyStepGoal',
+        'wellness_total_distance': 'wellnessDistanceMeters',
+        'wellness_average_steps': '',
+        'common_total_calories': 'totalKilocalories',
+        'common_active_calories': 'activeKilocalories',
+        'common_total_distance': 'totalDistanceMeters',
+        'wellness_moderate_intensity_minutes': 'moderateIntensityMinutes',
+        'wellness_vigorous_intensity_minutes': 'vigorousIntensityMinutes',
+        'wellness_floors_ascended': 'floorsAscended',
+        'wellness_floors_descended': 'floorsDescended',
+        'wellness_user_intensity_minutes_goal': 'intensityMinutesGoal',
+        'wellness_user_floors_ascended_goal': 'userFloorsAscendedGoal',
+        'wellness_min_heart_rate': 'minHeartRate',
+        'wellness_max_heart_rate': 'maxHeartRate',
+        'wellness_resting_heart_rate': 'restingHeartRate',
+        'wellness_average_stress': 'averageStressLevel',
+        'wellness_max_stress': 'maxStressLevel',
+        'wellness_min_avg_heart_rate': 'minAvgHeartRate',
+        'wellness_max_avg_heart_rate': 'maxAvgHeartRate',
+        'wellness_bodybattery_charged': 'bodyBatteryChargedValue',
+        'wellness_bodybattery_drained': 'bodyBatteryDrainedValue',
+        'wellness_abnormalhr_alerts_count': 'abnormalHeartRateAlertsCount'
+    }
 
-    try:
-        metrics_map = api.modern_rest_client.get(url, params=params).json()['allMetrics']['metricsMap']
-    except (KeyError, json.decoder.JSONDecodeError):
-        logger.exception('Metrics didn\'t load properly')
-        return []
-
+    # TODO: go through and get new stats model
     garmin_data = []
     for i in range((end_date - start_date).days + 1):
         check_day = start_date + dt.timedelta(days=i)
-        day_data = {'date': check_day, 'day_of_week': day_of_week[check_day.weekday()]}
-        for metric, data in metrics_map.items():
-            try:
-                metric_value = [x for x in data if x['calendarDate'] == check_day.isoformat()][0]['value']
-                day_data[metric.lower()] = int(metric_value) if metric_value else 0
-            except IndexError:
-                day_data[metric.lower()] = 0
-        for old_col, new_col in rename_cols.items():
-            try:
-                day_data[new_col] = day_data.pop(old_col)
-            except KeyError:
-                logger.exception("Couldn't pull the metrics due to missing column")
-                return []
+        day_data = {'date': check_day, 'day_of_week': day_of_week[check_day.weekday()],
+                    'wellness_average_steps': 0}
+        day_stats = api.get_stats(check_day.isoformat())
+        day_data = {**day_data, **{k: day_stats[v] for k, v in column_mapping.items() if v}}
+        abnormal_hr_counts = day_stats['abnormalHeartRateAlertsCount']
+        day_data['wellness_abnormalhr_alerts_count'] = abnormal_hr_counts if abnormal_hr_counts else 0
         garmin_data.append(day_data)
 
     return garmin_data
@@ -219,20 +219,7 @@ def get_garmin_activities(api, start_date, end_date, show_display,
     :return: activities: List of activities pulled from garmin (list of dicts)
     """
     start_date = max(start_date, dt.date(2013, 9, 1))
-    start = 0
-    limit = 200
-    acts = []
-    while True:
-        params = {"start": str(start), "limit": str(limit)}
-        acts_batch = api.modern_rest_client.get(api.garmin_connect_activities, params=params).json()
-        good_rows = [row for row in acts_batch if
-                     start_date <= dt.datetime.fromisoformat(row['startTimeLocal']).date() <= end_date]
-        min_act_time = min(dt.datetime.fromisoformat(row['startTimeLocal']).date() for row in acts_batch)
-        if good_rows or end_date <= min_act_time:
-            acts += good_rows
-            start += limit
-        else:
-            break
+    acts = api.get_activities_by_date(start_date.isoformat(), end_date.isoformat())
 
     logger.info(f'Pulled {len(acts)} activities')
 
@@ -294,12 +281,11 @@ def get_garmin_stats(start_date, end_date, metric_ids=None, show_display=False,
     """
     start_date, end_date = (end_date, start_date) if end_date < start_date else (start_date, end_date)
     api = Garmin(os.getenv('GARMIN_SIGNIN_EMAIL'), os.getenv('GARMIN_SIGNIN_PASSWORD'))
+    # TODO: set resume using garth
     api.login()
 
     daily_data = get_daily_stats(api, start_date, end_date, metric_ids, logger)
     activity_data = get_garmin_activities(api, start_date, end_date, show_display, logger)
-
-    api.logout()
 
     return daily_data, activity_data
 
