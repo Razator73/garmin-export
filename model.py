@@ -111,6 +111,17 @@ class Activity(Base):
         return convert_speed_to_pace(self.average_speed) if self.average_speed else None
 
 
+class WeighIn(Base):
+    __tablename__ = 'weigh_ins'
+    weigh_in_id = Column(String, primary_key=True)
+    weight_timestamp_utc = Column(DateTime, nullable=False)
+    weight_timestamp_mountain = Column(DateTime, nullable=False)
+    calendar_date = Column(Date, nullable=False)
+    weight_kg = Column(Float, nullable=False)
+    weight_lbs = Column(Float, nullable=False)
+
+
+
 def init_db(db_path):
     engine = create_engine(f'sqlite:///{db_path}')
     Base.metadata.create_all(engine)

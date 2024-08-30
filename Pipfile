@@ -12,6 +12,7 @@ razator-utils = "*"
 garminconnect = "*"
 webdriver-manager = "*"
 undetected-chromedriver = "*"
+pygsheets = "*"
 
 [dev-packages]
 ipython = "*"

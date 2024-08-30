@@ -3,6 +3,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import pytz
 import sys
 import time
 from pathlib import Path
@@ -16,8 +17,7 @@ from selenium.common.exceptions import (ElementNotInteractableException, StaleEl
                                         ElementClickInterceptedException)
 from selenium.webdriver.common.by import By
 
-from model import GarminStat, Activity, init_db
-
+from model import GarminStat, Activity, WeighIn, init_db
 
 def wait_for_element(css_selector, driver, timeout):
     """
@@ -197,7 +197,8 @@ def get_daily_stats(api, start_date, end_date, metric_ids,
         day_data = {'date': check_day, 'day_of_week': day_of_week[check_day.weekday()],
                     'wellness_average_steps': 0}
         day_stats = api.get_stats(check_day.isoformat())
-        day_data = {**day_data, **{k: day_stats[v] for k, v in column_mapping.items() if v}}
+        day_data = {**day_data, **{k: day_stats[v] if day_stats[v] else 0
+                                   for k, v in column_mapping.items() if v}}
         abnormal_hr_counts = day_stats['abnormalHeartRateAlertsCount']
         day_data['wellness_abnormalhr_alerts_count'] = abnormal_hr_counts if abnormal_hr_counts else 0
         garmin_data.append(day_data)
@@ -266,6 +267,43 @@ def get_garmin_activities(api, start_date, end_date, show_display,
     return flat_activities
 
 
+def get_weigh_ins(api, start_date, end_date,
+                  logger=razator_utils.log.get_stout_logger('garmin_activities')):
+    """
+    Get the activities from garmin
+
+    :param api: garmin API Class (Garmin)
+    :param logger: Logger object (logging.Logger)
+    :param start_date: Start date for activities (datetime.date)
+    :param end_date: End date for activities (datetime.date)
+
+    :return: activities: List of weigh-ins pulled from garmin (list of dicts)
+    """
+    logger.info('Getting weigh-ins')
+    start_date = max(start_date, dt.date(2017, 1, 13))
+    raw_weigh_ins = api.get_weigh_ins(start_date, end_date)
+    weigh_ins_list = []
+    for weight_day in raw_weigh_ins['dailyWeightSummaries']:
+        weigh_ins_list += weight_day['allWeightMetrics']
+    logger.info(f'Found {len(weigh_ins_list)} weigh-ins')
+    weigh_ins = []
+    for weigh_in in weigh_ins_list:
+        if timestamp_gmt := weigh_in['timestampGMT']:
+            timestamp_utc = dt.datetime.utcfromtimestamp(timestamp_gmt / 1000)
+        else:
+            timestamp_utc = dt.datetime.utcfromtimestamp(weigh_in['date'] / 1000)
+        timestamp_utc = pytz.utc.localize(timestamp_utc)
+        weigh_ins.append({
+            "weigh_in_id": weigh_in['samplePk'],
+            "weight_timestamp_utc": timestamp_utc,
+            "weight_timestamp_mountain": timestamp_utc.astimezone(pytz.timezone('America/Denver')),
+            "calendar_date": dt.date.fromisoformat(weigh_in['calendarDate']),
+            "weight_kg": round(weigh_in['weight'] / 1000, 2),
+            "weight_lbs": round(weigh_in['weight'] * 0.00220462, 1)
+        })
+    return weigh_ins
+
+
 def get_garmin_stats(start_date, end_date, metric_ids=None, show_display=False,
                      logger=razator_utils.log.get_stout_logger('garmin_api')):
     """
@@ -286,8 +324,9 @@ def get_garmin_stats(start_date, end_date, metric_ids=None, show_display=False,
 
     daily_data = get_daily_stats(api, start_date, end_date, metric_ids, logger)
     activity_data = get_garmin_activities(api, start_date, end_date, show_display, logger)
+    weigh_ins = get_weigh_ins(api, start_date, end_date, logger)
 
-    return daily_data, activity_data
+    return daily_data, activity_data, weigh_ins
 
 
 if __name__ == '__main__':
@@ -315,9 +354,10 @@ if __name__ == '__main__':
 
         file_logger.info('Starting the extract of Garmin stats')
 
-        daily_stats, activities = get_garmin_stats(logger=file_logger, start_date=args.from_date,
-                                                   end_date=args.end_date, metric_ids=args.metric_ids,
-                                                   show_display=args.show_display)
+        daily_stats, activities, weights = get_garmin_stats(
+            logger=file_logger, start_date=args.from_date, end_date=args.end_date,
+            metric_ids=args.metric_ids, show_display=args.show_display
+        )
 
         session = init_db(os.getenv('GARMIN_DATABASE_PATH'))
         for day_stat in daily_stats:
@@ -330,6 +370,11 @@ if __name__ == '__main__':
                 activity_row.update(activity)
             else:
                 session.add(Activity(**activity))
+        for weight in weights:
+            if (weight_row := session.query(WeighIn).filter_by(weigh_in_id=weight['weigh_in_id'])).first():
+                weight_row.update(weight)
+            else:
+                session.add(WeighIn(**weight))
         session.commit()
         session.close()
     except Exception:
