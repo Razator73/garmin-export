@@ -13,6 +13,7 @@ garminconnect = "*"
 webdriver-manager = "*"
 undetected-chromedriver = "*"
 pygsheets = "*"
+pytz = "*"
 
 [dev-packages]
 ipython = "*"
