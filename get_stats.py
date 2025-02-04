@@ -1,7 +1,6 @@
 #!/usr/bin/env pipenv-shebang
 import argparse
 import datetime as dt
-import json
 import os
 import pytz
 import sys
@@ -18,6 +17,7 @@ from selenium.common.exceptions import (ElementNotInteractableException, StaleEl
 from selenium.webdriver.common.by import By
 
 from model import GarminStat, Activity, WeighIn, init_db
+
 
 def wait_for_element(css_selector, driver, timeout):
     """
@@ -248,22 +248,22 @@ def get_garmin_activities(api, start_date, end_date, show_display,
         if 'activity_type_sort_order' in flat_act.keys():
             del flat_act['activity_type_sort_order']
         flat_activities.append(flat_act)
-    # dg_acts_to_update = [flat_act for flat_act in flat_activities
-    #                      if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']]
-    # ultimate_acts = [flat_act for flat_act in flat_activities
-    #                  if flat_act['activity_type_type_id'] == 11 and 'Frisbee' in flat_act['activity_name']]
-    # if dg_acts_to_update:
-    #     update_activities(dg_acts_to_update, 205, show_display, logger=logger)
-    #     for dg_act in dg_acts_to_update:
-    #         dg_act['activity_type_type_id'] = 205
-    #         dg_act['activity_type_type_key'] = 'disc_golf'
-    #         dg_act['activity_type_parent_type_id'] = 4
-    # if ultimate_acts:
-    #     update_activities(ultimate_acts, 213, show_display, logger=logger)
-    #     for ulti_act in ultimate_acts:
-    #         ulti_act['activity_type_type_id'] = 213
-    #         ulti_act['activity_type_type_key'] = 'ultimate_disc'
-    #         ulti_act['activity_type_parent_type_id'] = 206
+    dg_acts_to_update = [flat_act for flat_act in flat_activities
+                         if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']]
+    ultimate_acts = [flat_act for flat_act in flat_activities
+                     if flat_act['activity_type_type_id'] == 11 and 'Frisbee' in flat_act['activity_name']]
+    if dg_acts_to_update:
+        update_activities(dg_acts_to_update, 205, show_display, logger=logger)
+        for dg_act in dg_acts_to_update:
+            dg_act['activity_type_type_id'] = 205
+            dg_act['activity_type_type_key'] = 'disc_golf'
+            dg_act['activity_type_parent_type_id'] = 4
+    if ultimate_acts:
+        update_activities(ultimate_acts, 213, show_display, logger=logger)
+        for ulti_act in ultimate_acts:
+            ulti_act['activity_type_type_id'] = 213
+            ulti_act['activity_type_type_key'] = 'ultimate_disc'
+            ulti_act['activity_type_parent_type_id'] = 206
     return flat_activities
 
 
@@ -331,27 +331,30 @@ def get_garmin_stats(start_date, end_date, metric_ids=None, show_display=False,
 
 if __name__ == '__main__':
     load_dotenv()
-    log_file = Path.home() / '.logs' / 'garmin_extract.log'
-    log_file.parent.mkdir(exist_ok=True)
-    file_logger = razator_utils.log.get_file_logger('garmin_extract', log_file, 'INFO')
     # noinspection PyBroadException
-    try:
-        if not os.getenv('GARMIN_SIGNIN_EMAIL'):
-            raise KeyError('Please make sure GARMIN_SIGNIN_EMAIL is set in the environment variables')
-        if not os.getenv('GARMIN_SIGNIN_PASSWORD'):
-            raise KeyError('Please make sure GARMIN_SIGNIN_PASSWORD is set in the environment variables')
-        if not os.getenv('GARMIN_DATABASE_PATH'):
-            raise KeyError('Please make sure GARMIN_DATABASE_PATH is set in the environment variables')
-        default_date = dt.date.today() - dt.timedelta(days=1)
-        arg_parser = argparse.ArgumentParser(prog='garmin_export', description='Scrape my garmin stats')
-        arg_parser.add_argument('-f', '--from_date', default=default_date,  type=dt.date.fromisoformat,
-                                help='Start date (in iso 8601 format) for the stats (default yesterday)')
-        arg_parser.add_argument('-e', '--end_date', default=default_date, type=dt.date.fromisoformat,
-                                help='End date (in iso 8601 format) for the stats (default yesterday)')
-        arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')
-        arg_parser.add_argument('-d', '--show_display', action='store_true', help='Show the display')
-        args = arg_parser.parse_args()
+    if not os.getenv('GARMIN_SIGNIN_EMAIL'):
+        raise KeyError('Please make sure GARMIN_SIGNIN_EMAIL is set in the environment variables')
+    if not os.getenv('GARMIN_SIGNIN_PASSWORD'):
+        raise KeyError('Please make sure GARMIN_SIGNIN_PASSWORD is set in the environment variables')
+    default_date = dt.date.today() - dt.timedelta(days=1)
+    arg_parser = argparse.ArgumentParser(prog='garmin_export', description='Scrape my garmin stats')
+    arg_parser.add_argument('-f', '--from_date', default=default_date,  type=dt.date.fromisoformat,
+                            help='Start date (in iso 8601 format) for the stats (default yesterday)')
+    arg_parser.add_argument('-e', '--end_date', default=default_date, type=dt.date.fromisoformat,
+                            help='End date (in iso 8601 format) for the stats (default yesterday)')
+    arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')
+    arg_parser.add_argument('-d', '--show_display', action='store_true', help='Show the display')
+    arg_parser.add_argument('-v', '--stout-output', action='store_true', help='Export logging to terminal')
+    args = arg_parser.parse_args()
 
+    if args.stout_output:
+        file_logger = razator_utils.log.get_stout_logger('garmin_extract', 'INFO')
+    else:
+        log_file = Path.home() / '.logs' / 'garmin_extract.log'
+        log_file.parent.mkdir(exist_ok=True)
+        file_logger = razator_utils.log.get_file_logger('garmin_extract', log_file, 'INFO')
+
+    try:
         file_logger.info('Starting the extract of Garmin stats')
 
         daily_stats, activities, weights = get_garmin_stats(
@@ -359,7 +362,7 @@ if __name__ == '__main__':
             metric_ids=args.metric_ids, show_display=args.show_display
         )
 
-        session = init_db(os.getenv('GARMIN_DATABASE_PATH'))
+        session = init_db()
         for day_stat in daily_stats:
             if (day_row := session.query(GarminStat).filter_by(date=day_stat['date'])).first():
                 day_row.update(day_stat)
@@ -371,7 +374,7 @@ if __name__ == '__main__':
             else:
                 session.add(Activity(**activity))
         for weight in weights:
-            if (weight_row := session.query(WeighIn).filter_by(weigh_in_id=weight['weigh_in_id'])).first():
+            if (weight_row := session.query(WeighIn).filter_by(weigh_in_id=str(weight['weigh_in_id']))).first():
                 weight_row.update(weight)
             else:
                 session.add(WeighIn(**weight))

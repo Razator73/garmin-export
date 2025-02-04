@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, create_engine, Date, DateTime, Boolean, Float
-from sqlalchemy.ext.declarative import declarative_base
+import os
+
+from sqlalchemy import BIGINT, Column, Integer, String, create_engine, Date, DateTime, Boolean, Float
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 Base = declarative_base()
@@ -47,19 +49,19 @@ class GarminStat(Base):
 
 class Activity(Base):
     __tablename__ = 'activities'
-    activity_id = Column(Integer, primary_key=True)
+    activity_id = Column(BIGINT, primary_key=True)
     activity_name = Column(String, nullable=False)
     start_time_local = Column(DateTime, nullable=False)
     start_time_gmt = Column(DateTime, nullable=False)
-    activity_type_type_id = Column(Integer, nullable=False)
+    activity_type_type_id = Column(BIGINT, nullable=False)
     activity_type_type_key = Column(String, nullable=False)
-    activity_type_parent_type_id = Column(Integer, nullable=False)
+    activity_type_parent_type_id = Column(BIGINT, nullable=False)
     activity_type_is_hidden = Column(Boolean, nullable=False)
     activity_type_trimmable = Column(Boolean, nullable=False)
     activity_type_restricted = Column(Boolean, nullable=False)
-    event_type_type_id = Column(Integer, nullable=False)
+    event_type_type_id = Column(BIGINT, nullable=False)
     event_type_type_key = Column(String, nullable=False)
-    event_type_sort_order = Column(Integer, nullable=False)
+    event_type_sort_order = Column(BIGINT, nullable=False)
     distance = Column(Float, nullable=False)
     duration = Column(Float, nullable=False)
     moving_duration = Column(Float, nullable=True)
@@ -71,8 +73,8 @@ class Activity(Base):
     average_hr = Column(Float, nullable=True)
     max_hr = Column(Float, nullable=True)
     steps = Column(Float, nullable=True)
-    time_zone_id = Column(Integer, nullable=False)
-    begin_timestamp = Column(Integer, nullable=False)
+    time_zone_id = Column(BIGINT, nullable=False)
+    begin_timestamp = Column(BIGINT, nullable=False)
     v_o2_max_value = Column(Float, nullable=True)
     workout_id = Column(Float, nullable=True)
     device_id = Column(Float, nullable=True)
@@ -121,9 +123,9 @@ class WeighIn(Base):
     weight_lbs = Column(Float, nullable=False)
 
 
-
-def init_db(db_path):
-    engine = create_engine(f'sqlite:///{db_path}')
+def init_db():
+    engine = create_engine(f'postgresql+psycopg2://{os.environ["DATABASE_USER"]}:{os.environ["DATABASE_PASSWORD"]}'
+                           f'@{os.environ["DATABASE_HOST"]}/{os.environ["DATABASE_DB"]}')
     Base.metadata.create_all(engine)
 
     db_session = sessionmaker(bind=engine)

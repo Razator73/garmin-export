@@ -14,6 +14,7 @@ webdriver-manager = "*"
 undetected-chromedriver = "*"
 pygsheets = "*"
 pytz = "*"
+psycopg2-binary = "*"
 
 [dev-packages]
 ipython = "*"
