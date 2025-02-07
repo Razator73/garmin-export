@@ -350,7 +350,7 @@ if __name__ == '__main__':
     if args.stout_output:
         file_logger = razator_utils.log.get_stout_logger('garmin_extract', 'INFO')
     else:
-        log_file = Path.home() / '.logs' / 'garmin_extract.log'
+        log_file = Path.home() / 'logs' / 'garmin_extract.log'
         log_file.parent.mkdir(exist_ok=True)
         file_logger = razator_utils.log.get_file_logger('garmin_extract', log_file, 'INFO')
 
