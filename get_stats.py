@@ -61,6 +61,7 @@ def interact_with_element(css_selector, driver, timeout=30, action='click', valu
                 element.click()
             elif action == 'send_keys':
                 element.send_keys(value)
+            time.sleep(1)
             return element
         except (ElementNotInteractableException, StaleElementReferenceException, ElementClickInterceptedException):
             if time.time() - start_time > timeout:
@@ -98,6 +99,7 @@ def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=
         interact_with_element('[class="btn btn-primary js-saveBtn "]', browser, 3)
     except TimeoutError:
         pass
+    time.sleep(3)
 
 
 def update_activities(acts_to_update, update_to_type_id, show_display,
@@ -126,6 +128,7 @@ def update_activities(acts_to_update, update_to_type_id, show_display,
     password = browser.find_element(By.ID, 'password')
     password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
     password.submit()
+    time.sleep(5)
 
     try:
         for act in acts_to_update:
@@ -336,11 +339,11 @@ if __name__ == '__main__':
         raise KeyError('Please make sure GARMIN_SIGNIN_EMAIL is set in the environment variables')
     if not os.getenv('GARMIN_SIGNIN_PASSWORD'):
         raise KeyError('Please make sure GARMIN_SIGNIN_PASSWORD is set in the environment variables')
-    default_date = dt.date.today() - dt.timedelta(days=1)
     arg_parser = argparse.ArgumentParser(prog='garmin_export', description='Scrape my garmin stats')
-    arg_parser.add_argument('-f', '--from_date', default=default_date,  type=dt.date.fromisoformat,
+    arg_parser.add_argument('-f', '--from_date', default=dt.date.today(),  type=dt.date.fromisoformat,
                             help='Start date (in iso 8601 format) for the stats (default yesterday)')
-    arg_parser.add_argument('-e', '--end_date', default=default_date, type=dt.date.fromisoformat,
+    arg_parser.add_argument('-e', '--end_date', default=dt.date.today() - dt.timedelta(days=1),
+                            type=dt.date.fromisoformat,
                             help='End date (in iso 8601 format) for the stats (default yesterday)')
     arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')
     arg_parser.add_argument('-d', '--show_display', action='store_true', help='Show the display')
