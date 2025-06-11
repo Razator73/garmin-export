@@ -96,7 +96,8 @@ def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=
     interact_with_element('[class="Dropdown_dropdownIconPiece__eR5dU"]', browser)
     interact_with_element(f'[data-value="{type_id}"]', browser)
     try:
-        interact_with_element('[class="btn btn-primary js-saveBtn "]', browser, 3)
+        interact_with_element('[class="Button_btn__g8LLk Button_btnPrimary__1NpC1  Button_btnMedium__Icah-"]',
+                              browser, 3)
     except TimeoutError:
         pass
     time.sleep(3)
