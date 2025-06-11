@@ -93,7 +93,7 @@ def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=
         interact_with_element('[class="inline-edit-editable-text page-title-overflow"]', browser, action='send_keys',
                               value=act_name.replace(replace_tuple[0], replace_tuple[1]))
         interact_with_element('[class="inline-edit-save icon-checkmark"]', browser)
-    interact_with_element('[class="dropdown-toggle active"]', browser)
+    interact_with_element('[class="Dropdown_dropdownIconPiece__eR5dU"]', browser)
     interact_with_element(f'[data-value="{type_id}"]', browser)
     try:
         interact_with_element('[class="btn btn-primary js-saveBtn "]', browser, 3)
@@ -340,9 +340,9 @@ if __name__ == '__main__':
     if not os.getenv('GARMIN_SIGNIN_PASSWORD'):
         raise KeyError('Please make sure GARMIN_SIGNIN_PASSWORD is set in the environment variables')
     arg_parser = argparse.ArgumentParser(prog='garmin_export', description='Scrape my garmin stats')
-    arg_parser.add_argument('-f', '--from_date', default=dt.date.today(),  type=dt.date.fromisoformat,
+    arg_parser.add_argument('-f', '--from_date', default=dt.date.today() - dt.timedelta(days=1),  type=dt.date.fromisoformat,
                             help='Start date (in iso 8601 format) for the stats (default yesterday)')
-    arg_parser.add_argument('-e', '--end_date', default=dt.date.today() - dt.timedelta(days=1),
+    arg_parser.add_argument('-e', '--end_date', default=dt.date.today(),
                             type=dt.date.fromisoformat,
                             help='End date (in iso 8601 format) for the stats (default yesterday)')
     arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')

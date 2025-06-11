@@ -13,9 +13,9 @@ def average(num_list):
     return sum(num_list) / len(num_list)
 
 
-def get_activities(types):
+def get_activities(types, act_date):
     return session.query(Activity)\
-        .filter(func.date(Activity.start_time_local) == row_date)\
+        .filter(func.date(Activity.start_time_local) == act_date)\
         .filter(Activity.activity_type_type_id.in_(types))\
         .all()
 
@@ -24,23 +24,25 @@ load_dotenv()
 cred_file = Path.home() / '.creds' / 'gdrive.json'
 gc = pygsheets.authorize(service_file=cred_file)
 weight_sheet = gc.open('Daily Weigh-In').worksheet_by_title('daily_data')
-session = init_db(os.getenv('GARMIN_DATABASE_PATH'))
+session = init_db()
 
 # put in weights
-cells = weight_sheet.range(f'A2:D{weight_sheet.rows - 1}')
+cells = weight_sheet.range(f'A65:E{weight_sheet.rows - 1}')
 for row in cells:
     if row[1].value:
         continue
     row_date = dt.datetime.strptime(row[0].value, '%m/%d/%Y').date()
     print(f'Updating {row_date}...')
-    run_acts = get_activities([1, 18])
+    run_acts = get_activities([1, 18], row_date)
     if run_acts:
-        distance = round(sum(act.distance_miles for act in run_acts), 2)
-        row[3].set_value(distance)
-    ulti_acts = get_activities([213])
+        distance = round(sum(act.distance_miles for act in run_acts if act.distance_miles), 2)
+        if distance:
+            row[3].set_value(distance)
+    ulti_acts = get_activities([213], row_date)
     if ulti_acts:
-        distance = round(sum(act.distance_miles for act in ulti_acts), 2)
-        row[5].set_value(distance)
+        distance = round(sum(act.distance_miles for act in ulti_acts if act.distance_miles), 2)
+        if distance:
+            row[4].set_value(distance)
     weights = session.query(WeighIn).filter_by(calendar_date=row_date).all()
     if weights:
         weight = round(average([w.weight_lbs for w in weights]), 1)
@@ -48,7 +50,7 @@ for row in cells:
 session.close()
 print('done')
 
-start_date = dt.date(2017, 1, 13)
+start_date = dt.date(2024, 9, 12)
 today = dt.date.today()
 cells = weight_sheet.range(f'A2:A{weight_sheet.rows - 1}')
 running_by_day = session.query(
