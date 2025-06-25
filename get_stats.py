@@ -19,13 +19,14 @@ from selenium.webdriver.common.by import By
 from model import GarminStat, Activity, WeighIn, init_db
 
 
-def wait_for_element(css_selector, driver, timeout):
+def wait_for_element(driver, timeout, css_selector=None, xpath=None):
     """
     Wait for an element to appear on the page.
 
-    :param css_selector: CSS selector for the element. (str)
     :param driver: Selenium WebDriver object. (WebDriver)
     :param timeout: Number of seconds to wait before timing out. (int)
+    :param css_selector: CSS selector for the element. Optional (str)
+    :param xpath: XPATH for the element. Optional (str)
 
     :return: element: Selenium WebElement object. (WebElement)
     """
@@ -33,27 +34,34 @@ def wait_for_element(css_selector, driver, timeout):
     while True:
         # noinspection PyBroadException
         try:
-            element = driver.find_element(By.CSS_SELECTOR, css_selector)
-            return element
+            if css_selector:
+                element = driver.find_element(By.CSS_SELECTOR, css_selector)
+                return element
+            elif xpath:
+                element = driver.find_element(By.XPATH, xpath)
+                return element
+            else:
+                raise ValueError('Need to pass either XPATH or CSS selector')
         except Exception:
             if time.time() - start_time > timeout:
                 raise TimeoutError(f'Timed out after {timeout} seconds trying to find {css_selector}.')
             time.sleep(0.5)
 
 
-def interact_with_element(css_selector, driver, timeout=30, action='click', value=''):
+def interact_with_element(driver, timeout=30, css_selector=None, xpath=None, action='click', value=''):
     """
     interact with an element on the page.
 
-    :param css_selector: CSS selector for the element. (str)
     :param driver: Selenium WebDriver object. (WebDriver)
     :param timeout: Number of seconds to wait before timing out. (int)
     :param action: Action to take on the element. Can be 'click' or 'send_keys'. (str)
     :param value: Value to send to the element if action is 'send_keys'. (str)
+    :param css_selector: CSS selector for the element. Optional (str)
+    :param xpath: XPATH for the element. Optional (str)
 
     :return: element: Selenium WebElement object. (WebElement)
     """
-    element = wait_for_element(css_selector, driver, timeout)
+    element = wait_for_element(driver, timeout, css_selector, xpath)
     start_time = time.time()
     while True:
         try:
@@ -61,6 +69,8 @@ def interact_with_element(css_selector, driver, timeout=30, action='click', valu
                 element.click()
             elif action == 'send_keys':
                 element.send_keys(value)
+            else:
+                raise ValueError(f'Must be an action of either click or send_keys not {action}')
             time.sleep(1)
             return element
         except (ElementNotInteractableException, StaleElementReferenceException, ElementClickInterceptedException):
@@ -89,16 +99,16 @@ def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=
     logger.info(f"\tUpdating activity `{act_name}` at {act_url}")
     time.sleep(10)
     if replace_tuple:
-        interact_with_element('[class="inline-edit-trigger modal-trigger"]', browser)
-        interact_with_element('[class="inline-edit-editable-text page-title-overflow"]', browser, action='send_keys',
-                              value=act_name.replace(replace_tuple[0], replace_tuple[1]))
-        interact_with_element('[class="inline-edit-save icon-checkmark"]', browser)
-    interact_with_element('[class="Dropdown_dropdownIconPiece__eR5dU"]', browser)
-    interact_with_element(f'[data-value="{type_id}"]', browser)
+        interact_with_element(browser, css_selector='[class="inline-edit-trigger modal-trigger"]')
+        interact_with_element(browser, css_selector='[class="inline-edit-editable-text page-title-overflow"]',
+                              action='send_keys', value=act_name.replace(replace_tuple[0], replace_tuple[1]))
+        interact_with_element(browser, css_selector='[class="inline-edit-save icon-checkmark"]')
+    interact_with_element(browser, css_selector='[class="Dropdown_dropdownIconPiece__eR5dU"]')
+    interact_with_element(browser, css_selector=f'[data-value="{type_id}"]')
     try:
-        interact_with_element('[class="Button_btn__g8LLk Button_btnPrimary__1NpC1  Button_btnMedium__Icah-"]',
-                              browser, 3)
+        interact_with_element(browser, timeout=3, xpath="//button[./span[text()='Continue']]")
     except TimeoutError:
+        logger.warning('Could not find the continue button')
         pass
     time.sleep(3)
 
