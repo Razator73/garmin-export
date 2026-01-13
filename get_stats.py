@@ -130,15 +130,14 @@ def update_activities(acts_to_update, update_to_type_id, show_display,
     display.start()
 
     base_url = 'https://connect.garmin.com'
-    better_signin_url = 'https://sso.garmin.com/sso/signin?webhost=https%3A%2F%2Fconnect.garmin.com' \
-                        '&service=https%3A%2F%2Fconnect.garmin.com&source=https%3A%2F%2Fsso.garmin.com%2Fsso%2Fsignin'
 
     browser = uc.Chrome(subprocess=True)
-    browser.get(better_signin_url)
-    browser.find_element(By.ID, 'username').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
+    browser.get(f"{base_url}/signin")
+    time.sleep(10)
+    browser.find_element(By.ID, 'email').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
     password = browser.find_element(By.ID, 'password')
     password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
-    password.submit()
+    interact_with_element(browser, css_selector='[data-testid="g__button"]')
     time.sleep(5)
 
     try:
