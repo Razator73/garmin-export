@@ -619,12 +619,12 @@
         },
         "razator-utils": {
             "hashes": [
-                "sha256:2bf65d27f8dde0d4cf0bc13f1f0613a65430bf6bcb6918a1c08a065b3a4dd10a",
-                "sha256:47389236b8b2831531b4c72c16252c778602519f80d3e291230617e40df6059e"
+                "sha256:6bdd0dd51abe17bd98cc27c3988cf1c7c689101045d8ba2b195ad110b9688104",
+                "sha256:cb1ad0c19b2d09a7e43ce82f58325d170ec5d206954bf97f78eccc812b7d2f9d"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==0.3.1"
+            "version": "==0.4.0"
         },
         "requests": {
             "hashes": [

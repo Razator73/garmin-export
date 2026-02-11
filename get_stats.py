@@ -345,27 +345,38 @@ def get_garmin_stats(start_date, end_date, metric_ids=None, show_display=False,
 if __name__ == '__main__':
     load_dotenv()
     # noinspection PyBroadException
-    if not os.getenv('GARMIN_SIGNIN_EMAIL'):
-        raise KeyError('Please make sure GARMIN_SIGNIN_EMAIL is set in the environment variables')
-    if not os.getenv('GARMIN_SIGNIN_PASSWORD'):
-        raise KeyError('Please make sure GARMIN_SIGNIN_PASSWORD is set in the environment variables')
-    arg_parser = argparse.ArgumentParser(prog='garmin_export', description='Scrape my garmin stats')
-    arg_parser.add_argument('-f', '--from_date', default=dt.date.today() - dt.timedelta(days=1),  type=dt.date.fromisoformat,
-                            help='Start date (in iso 8601 format) for the stats (default yesterday)')
-    arg_parser.add_argument('-e', '--end_date', default=dt.date.today(),
-                            type=dt.date.fromisoformat,
-                            help='End date (in iso 8601 format) for the stats (default yesterday)')
-    arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')
-    arg_parser.add_argument('-d', '--show_display', action='store_true', help='Show the display')
-    arg_parser.add_argument('-v', '--stout-output', action='store_true', help='Export logging to terminal')
-    args = arg_parser.parse_args()
+    try:
+        if not os.getenv('GARMIN_SIGNIN_EMAIL'):
+            raise KeyError('Please make sure GARMIN_SIGNIN_EMAIL is set in the environment variables')
+        if not os.getenv('GARMIN_SIGNIN_PASSWORD'):
+            raise KeyError('Please make sure GARMIN_SIGNIN_PASSWORD is set in the environment variables')
+    except KeyError as e:
+        if alert_url := os.getenv('DISCORD_ALERT_URL'):
+            razator_utils.discord_message(alert_url, 'Garmin Extract Failed. Please check environment variables')
+        raise
 
-    if args.stout_output:
-        file_logger = razator_utils.log.get_stout_logger('garmin_extract', 'INFO')
-    else:
-        log_file = Path.home() / 'logs' / 'garmin_extract.log'
-        log_file.parent.mkdir(exist_ok=True)
-        file_logger = razator_utils.log.get_file_logger('garmin_extract', log_file, 'INFO')
+    try:
+        arg_parser = argparse.ArgumentParser(prog='garmin_export', description='Scrape my garmin stats')
+        arg_parser.add_argument('-f', '--from_date', default=dt.date.today() - dt.timedelta(days=1),  type=dt.date.fromisoformat,
+                                help='Start date (in iso 8601 format) for the stats (default yesterday)')
+        arg_parser.add_argument('-e', '--end_date', default=dt.date.today(),
+                                type=dt.date.fromisoformat,
+                                help='End date (in iso 8601 format) for the stats (default yesterday)')
+        arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')
+        arg_parser.add_argument('-d', '--show_display', action='store_true', help='Show the display')
+        arg_parser.add_argument('-v', '--stout-output', action='store_true', help='Export logging to terminal')
+        args = arg_parser.parse_args()
+
+        if args.stout_output:
+            file_logger = razator_utils.log.get_stout_logger('garmin_extract', 'INFO')
+        else:
+            log_file = Path.home() / 'logs' / 'garmin_extract.log'
+            log_file.parent.mkdir(exist_ok=True)
+            file_logger = razator_utils.log.get_file_logger('garmin_extract', log_file, 'INFO')
+    except Exception:
+        if alert_url := os.getenv('DISCORD_ALERT_URL'):
+            razator_utils.discord_message(alert_url, 'Garmin Extract Failed. Please check arguments')
+        raise
 
     try:
         file_logger.info('Starting the extract of Garmin stats')
@@ -395,5 +406,7 @@ if __name__ == '__main__':
         session.close()
     except Exception:
         file_logger.exception('Garmin extract failed')
+        if alert_url := os.getenv('DISCORD_ALERT_URL'):
+            razator_utils.discord_message(alert_url, 'Garmin Extract Failed. Check logs for details.')
         sys.exit(1)
     file_logger.info('Finished extract')
