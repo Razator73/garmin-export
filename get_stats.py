@@ -3,8 +3,6 @@ import argparse
 import datetime as dt
 import os
 import pytz
-import re
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -19,21 +17,6 @@ from selenium.common.exceptions import (ElementNotInteractableException, StaleEl
 from selenium.webdriver.common.by import By
 
 from model import GarminStat, Activity, WeighIn, init_db
-
-
-def get_chrome_major_version():
-    try:
-        # Find the path to the chrome executable
-        binary = uc.find_chrome_executable()
-        # Run the '--version' command and capture output
-        output = subprocess.check_output([binary, "--version"]).decode("utf-8")
-        # Extract the major version (e.g., '144' from 'Google Chrome 144.0.xxxx')
-        match = re.search(r"(\d+)\.", output)
-        if match:
-            return int(match.group(1))
-    except Exception as e:
-        print(f"Could not detect Chrome version: {e}")
-    return None
 
 
 def wait_for_element(driver, timeout, css_selector=None, xpath=None):
@@ -148,14 +131,14 @@ def update_activities(acts_to_update, update_to_type_id, show_display,
 
     base_url = 'https://connect.garmin.com'
 
-    browser = uc.Chrome(subprocess=True, version_main=get_chrome_major_version())
+    browser = uc.Chrome(subprocess=True, version_main=razator_utils.get_chrome_major_version())
     browser.get(f"{base_url}/signin")
     time.sleep(10)
     browser.find_element(By.ID, 'email').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
     password = browser.find_element(By.ID, 'password')
     password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
     interact_with_element(browser, css_selector='[data-testid="g__button"]')
-    time.sleep(5)
+    time.sleep(10)
 
     try:
         for act in acts_to_update:
