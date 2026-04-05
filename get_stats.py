@@ -294,7 +294,7 @@ def get_weigh_ins(api, start_date, end_date,
     """
     logger.info('Getting weigh-ins')
     start_date = max(start_date, dt.date(2017, 1, 13))
-    raw_weigh_ins = api.get_weigh_ins(start_date, end_date)
+    raw_weigh_ins = api.get_weigh_ins(start_date.isoformat(), end_date.isoformat())
     weigh_ins_list = []
     for weight_day in raw_weigh_ins['dailyWeightSummaries']:
         weigh_ins_list += weight_day['allWeightMetrics']
@@ -331,9 +331,9 @@ def get_garmin_stats(start_date, end_date, metric_ids=None, show_display=False,
     :return: daily_data, activity_data: Daily and activity data from garmin (each a list of dicts)
     """
     start_date, end_date = (end_date, start_date) if end_date < start_date else (start_date, end_date)
-    api = Garmin(os.getenv('GARMIN_SIGNIN_EMAIL'), os.getenv('GARMIN_SIGNIN_PASSWORD'))
+    api = Garmin()
     # TODO: set resume using garth
-    api.login()
+    api.login(tokenstore='~/.garminconnect')
 
     daily_data = get_daily_stats(api, start_date, end_date, metric_ids, logger)
     activity_data = get_garmin_activities(api, start_date, end_date, show_display, logger)
