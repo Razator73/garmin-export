@@ -125,6 +125,7 @@ def get_garmin_activities(api, start_date, end_date,
         ulti_act['activity_type_type_id'] = 213
         ulti_act['activity_type_type_key'] = 'ultimate_disc'
         ulti_act['activity_type_parent_type_id'] = 206
+        logger.info(f'Updated activity {ulti_act["activity_id"]} to ultimate')
     return flat_activities
 
 
