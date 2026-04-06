@@ -4,169 +4,22 @@ import datetime as dt
 import os
 import pytz
 import sys
-import time
 from pathlib import Path
 
 import razator_utils
-import undetected_chromedriver as uc
 from dotenv import load_dotenv
 from garminconnect import Garmin
-from pyvirtualdisplay import Display
-from selenium.common.exceptions import (ElementNotInteractableException, StaleElementReferenceException,
-                                        ElementClickInterceptedException)
-from selenium.webdriver.common.by import By
 
 from model import GarminStat, Activity, WeighIn, init_db
 
 
-def wait_for_element(driver, timeout, css_selector=None, xpath=None):
-    """
-    Wait for an element to appear on the page.
-
-    :param driver: Selenium WebDriver object. (WebDriver)
-    :param timeout: Number of seconds to wait before timing out. (int)
-    :param css_selector: CSS selector for the element. Optional (str)
-    :param xpath: XPATH for the element. Optional (str)
-
-    :return: element: Selenium WebElement object. (WebElement)
-    """
-    start_time = time.time()
-    while True:
-        # noinspection PyBroadException
-        try:
-            if css_selector:
-                element = driver.find_element(By.CSS_SELECTOR, css_selector)
-                return element
-            elif xpath:
-                element = driver.find_element(By.XPATH, xpath)
-                return element
-            else:
-                raise ValueError('Need to pass either XPATH or CSS selector')
-        except Exception:
-            if time.time() - start_time > timeout:
-                raise TimeoutError(f'Timed out after {timeout} seconds trying to find {css_selector}.')
-            time.sleep(0.5)
-
-
-def interact_with_element(driver, timeout=30, css_selector=None, xpath=None, action='click', value=''):
-    """
-    interact with an element on the page.
-
-    :param driver: Selenium WebDriver object. (WebDriver)
-    :param timeout: Number of seconds to wait before timing out. (int)
-    :param action: Action to take on the element. Can be 'click' or 'send_keys'. (str)
-    :param value: Value to send to the element if action is 'send_keys'. (str)
-    :param css_selector: CSS selector for the element. Optional (str)
-    :param xpath: XPATH for the element. Optional (str)
-
-    :return: element: Selenium WebElement object. (WebElement)
-    """
-    element = wait_for_element(driver, timeout, css_selector, xpath)
-    start_time = time.time()
-    while True:
-        try:
-            if action == 'click':
-                element.click()
-            elif action == 'send_keys':
-                element.send_keys(value)
-            else:
-                raise ValueError(f'Must be an action of either click or send_keys not {action}')
-            time.sleep(1)
-            return element
-        except (ElementNotInteractableException, StaleElementReferenceException, ElementClickInterceptedException):
-            if time.time() - start_time > timeout:
-                raise TimeoutError(f'Timed out after {timeout} seconds trying to interact with {css_selector}.')
-            time.sleep(0.5)
-
-
-def update_activity(act_id, act_name, type_id, browser, base_url, replace_tuple=None,
-                    logger=razator_utils.log.get_stout_logger('garmin_activities')):
-    """
-    Update the activity on Garmin Connect with the new activity type
-
-    :param act_id: ID of Activity to be edited (int | str)
-    :param act_name: Name of Activity to be edited (str)
-    :param type_id: Type ID to update (int)
-    :param browser: Selenium browser object (WebDriver)
-    :param base_url: Base URL for Garmin Connect (str)
-    :param replace_tuple: Tuple of (old_string, new_string) (tuple)
-    :param logger: Logger object (logging.Logger)
-
-    :return: None
-    """
-    act_url = f"{base_url}/modern/activity/{act_id}"
-    browser.get(act_url)
-    logger.info(f"\tUpdating activity `{act_name}` at {act_url}")
-    time.sleep(10)
-    if replace_tuple:
-        interact_with_element(browser, css_selector='[class="inline-edit-trigger modal-trigger"]')
-        interact_with_element(browser, css_selector='[class="inline-edit-editable-text page-title-overflow"]',
-                              action='send_keys', value=act_name.replace(replace_tuple[0], replace_tuple[1]))
-        interact_with_element(browser, css_selector='[class="inline-edit-save icon-checkmark"]')
-    interact_with_element(browser, css_selector='[class="Dropdown_dropdownIconPiece__eR5dU"]')
-    interact_with_element(browser, css_selector=f'[data-value="{type_id}"]')
-    try:
-        interact_with_element(browser, timeout=3, xpath="//button[./span[text()='Continue']]")
-    except TimeoutError:
-        logger.warning('Could not find the continue button')
-        pass
-    time.sleep(3)
-
-
-def update_activities(acts_to_update, update_to_type_id, show_display,
-                      logger=razator_utils.log.get_stout_logger('garmin_activities', 'INFO')):
-    """
-    Updates the disc golf activities aren't listed as such
-
-    :param acts_to_update: list of activities to update (list)
-    :param update_to_type_id: the id of the type the activity should be (int)
-    :param show_display: whether the virtual display should be shown (boolean)
-    :param logger: Logger object (logging.Logger)
-
-    :return: None
-    """
-    logger.info(f'Updating {len(acts_to_update)} activities...')
-    display = Display(visible=show_display)
-    display.start()
-
-    base_url = 'https://connect.garmin.com'
-
-    browser = uc.Chrome(subprocess=True, version_main=razator_utils.get_chrome_major_version())
-    browser.get(f"{base_url}/signin")
-    time.sleep(10)
-    browser.find_element(By.ID, 'email').send_keys(os.getenv('GARMIN_SIGNIN_EMAIL'))
-    password = browser.find_element(By.ID, 'password')
-    password.send_keys(os.getenv('GARMIN_SIGNIN_PASSWORD'))
-    interact_with_element(browser, css_selector='[data-testid="g__button"]')
-    time.sleep(10)
-
-    try:
-        for act in acts_to_update:
-            try:
-                act_id = act['activity_id']
-                act_name = act['activity_name']
-            except TypeError:
-                act_id = act.activity_id
-                act_name = act.activity_name
-            update_activity(act_id, act_name, update_to_type_id, browser, base_url, logger=logger)
-    except Exception:
-        browser.quit()
-        display.stop()
-        raise
-    browser.quit()
-    display.stop()
-
-
-def get_daily_stats(api, start_date, end_date, metric_ids,
-                    logger=razator_utils.log.get_stout_logger('garmin_daily_stats')):
+def get_daily_stats(api, start_date, end_date):
     """
     Get the daily stats from garmin
 
     :param api: garmin API Class (Garmin)
     :param start_date: Start date for activities (datetime.date)
     :param end_date: End date for activities (datetime.date)
-    :param metric_ids: Metric IDs to pull (dict {"id": "name"})
-    :param logger: Logger object (logging.Logger)
 
     :return: garmin_data: List of daily stats pulled from garmin (list of dicts)
     """
@@ -219,16 +72,15 @@ def get_daily_stats(api, start_date, end_date, metric_ids,
     return garmin_data
 
 
-def get_garmin_activities(api, start_date, end_date, show_display,
+def get_garmin_activities(api, start_date, end_date,
                           logger=razator_utils.log.get_stout_logger('garmin_activities')):
     """
     Get the activities from garmin
 
     :param api: garmin API Class (Garmin)
-    :param logger: Logger object (logging.Logger)
     :param start_date: Start date for activities (datetime.date)
     :param end_date: End date for activities (datetime.date)
-    :param show_display: whether the virtual display should be shown (boolean)
+    :param logger: Logger object (logging.Logger)
 
     :return: activities: List of activities pulled from garmin (list of dicts)
     """
@@ -261,22 +113,18 @@ def get_garmin_activities(api, start_date, end_date, show_display,
         if 'activity_type_sort_order' in flat_act.keys():
             del flat_act['activity_type_sort_order']
         flat_activities.append(flat_act)
-    dg_acts_to_update = [flat_act for flat_act in flat_activities
-                         if flat_act['activity_type_type_id'] == 4 and 'Disc Golf' in flat_act['activity_name']]
     ultimate_acts = [flat_act for flat_act in flat_activities
                      if flat_act['activity_type_type_id'] == 11 and 'Frisbee' in flat_act['activity_name']]
-    if dg_acts_to_update:
-        update_activities(dg_acts_to_update, 205, show_display, logger=logger)
-        for dg_act in dg_acts_to_update:
-            dg_act['activity_type_type_id'] = 205
-            dg_act['activity_type_type_key'] = 'disc_golf'
-            dg_act['activity_type_parent_type_id'] = 4
-    if ultimate_acts:
-        update_activities(ultimate_acts, 213, show_display, logger=logger)
-        for ulti_act in ultimate_acts:
-            ulti_act['activity_type_type_id'] = 213
-            ulti_act['activity_type_type_key'] = 'ultimate_disc'
-            ulti_act['activity_type_parent_type_id'] = 206
+    for ulti_act in ultimate_acts:
+        api.set_activity_type(
+            activity_id = ulti_act['activity_id'],
+            type_id = 213,
+            type_key='ultimate_disc',
+            parent_type_id=206
+        )
+        ulti_act['activity_type_type_id'] = 213
+        ulti_act['activity_type_type_key'] = 'ultimate_disc'
+        ulti_act['activity_type_parent_type_id'] = 206
     return flat_activities
 
 
@@ -317,26 +165,23 @@ def get_weigh_ins(api, start_date, end_date,
     return weigh_ins
 
 
-def get_garmin_stats(start_date, end_date, metric_ids=None, show_display=False,
+def get_garmin_stats(start_date, end_date,
                      logger=razator_utils.log.get_stout_logger('garmin_api')):
     """
     Get the stats from garmin
 
     :param start_date: Start date for stats (datetime.date)
     :param end_date: End date for stats (datetime.date)
-    :param metric_ids: Metric IDs to pull (dict {"id": "name"})
-    :param show_display: Show the display (bool)
     :param logger: Logger object (logging.Logger)
 
     :return: daily_data, activity_data: Daily and activity data from garmin (each a list of dicts)
     """
     start_date, end_date = (end_date, start_date) if end_date < start_date else (start_date, end_date)
     api = Garmin()
-    # TODO: set resume using garth
     api.login(tokenstore='~/.garminconnect')
 
-    daily_data = get_daily_stats(api, start_date, end_date, metric_ids, logger)
-    activity_data = get_garmin_activities(api, start_date, end_date, show_display, logger)
+    daily_data = get_daily_stats(api, start_date, end_date)
+    activity_data = get_garmin_activities(api, start_date, end_date, logger)
     weigh_ins = get_weigh_ins(api, start_date, end_date, logger)
 
     return daily_data, activity_data, weigh_ins
@@ -362,8 +207,6 @@ if __name__ == '__main__':
         arg_parser.add_argument('-e', '--end_date', default=dt.date.today(),
                                 type=dt.date.fromisoformat,
                                 help='End date (in iso 8601 format) for the stats (default yesterday)')
-        arg_parser.add_argument('-i', '--metric_ids', nargs='+', help='The metric ids to be pulled')
-        arg_parser.add_argument('-d', '--show_display', action='store_true', help='Show the display')
         arg_parser.add_argument('-v', '--stout-output', action='store_true', help='Export logging to terminal')
         args = arg_parser.parse_args()
 
@@ -382,8 +225,7 @@ if __name__ == '__main__':
         file_logger.info('Starting the extract of Garmin stats')
 
         daily_stats, activities, weights = get_garmin_stats(
-            logger=file_logger, start_date=args.from_date, end_date=args.end_date,
-            metric_ids=args.metric_ids, show_display=args.show_display
+            logger=file_logger, start_date=args.from_date, end_date=args.end_date
         )
 
         session = init_db()
